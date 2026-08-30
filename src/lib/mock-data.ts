@@ -191,11 +191,10 @@ export const INITIAL_RALLIES: Rally[] = [
     scoreOpp: 3,
     result: 'lost',
     server: 'self',
-    actionCategory: 'serve',
+    actionCategory: 'serve_miss',
     serveLength: 'long',
     serveCourse: 'back',
     serveSpin: 'side_top',
-    missType: 'serve_miss', // サーブミス
     createdAt: '2026-08-20T10:10:00.000Z',
   },
 

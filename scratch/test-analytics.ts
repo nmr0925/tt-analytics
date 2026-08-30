@@ -53,12 +53,12 @@ if (serveSummary.totalRallies === 2 && serveSummary.winRate === 100) {
   console.error('✗ TEST 4 FAILED!');
 }
 
-// 5. ミス種別集計テスト（サーブミス & 相手ネットイン含む）
-console.log(`[TEST 5] Miss Breakdown:`, totalSummary.byMissType);
-const serveMiss = totalSummary.byMissType.find(m => m.missType === 'serve_miss');
+// 5. サーブミス ＆ ミス種別集計テスト
+console.log(`[TEST 5] Category Breakdown:`, totalSummary.byActionCategory);
+const serveMissCat = totalSummary.byActionCategory.find(c => c.category === 'serve_miss');
 const netInMiss = totalSummary.byMissType.find(m => m.missType === 'net_in');
-if (serveMiss && serveMiss.count === 1 && netInMiss && netInMiss.count === 1) {
-  console.log('✓ TEST 5 PASSED: serve_miss & net_in correctly recorded and counted.\n');
+if (serveMissCat && serveMissCat.total === 1 && netInMiss && netInMiss.count === 1) {
+  console.log('✓ TEST 5 PASSED: serve_miss actionCategory & net_in correctly recorded and counted.\n');
 } else {
   console.error('✗ TEST 5 FAILED!');
 }

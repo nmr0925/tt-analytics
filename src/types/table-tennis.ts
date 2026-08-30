@@ -69,7 +69,6 @@ export type RallyType =
 
 // ミス種別 / 失点理由
 export type MissType = 
-  | 'serve_miss'  // サーブミス
   | 'net'         // ネットミス
   | 'over'        // オーバーミス
   | 'no_touch'    // ノータッチ (抜かれた)
@@ -239,7 +238,6 @@ export const RALLY_TYPE_LABELS: Record<RallyType, string> = {
 };
 
 export const MISS_TYPE_LABELS: Record<MissType, string> = {
-  serve_miss: 'サーブミス',
   net: 'ネットミス',
   over: 'オーバーミス',
   no_touch: 'ノータッチ (抜かれた)',

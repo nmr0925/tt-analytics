@@ -129,7 +129,9 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
     }
 
     if (finalResult === 'lost') {
-      newRally.missType = customMissType || (actionCategory === 'serve_miss' ? 'serve_miss' : missType);
+      if (actionCategory !== 'serve_miss') {
+        newRally.missType = customMissType || missType;
+      }
     }
 
     onSaveRally(newRally);
@@ -157,7 +159,6 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
     } else if (cat === 'serve_miss') {
       setResult('lost');
       setServer('self');
-      setMissType('serve_miss');
       setCurrentStep('step3_serve_course');
     } else if (cat === 'receive') {
       setCurrentStep('step3_receive_tech');
@@ -180,7 +181,7 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
     setServeSpin(spin);
     if (actionCategory === 'serve_miss') {
       // サーブミスの場合は回転選択で即座に失点登録完了
-      commitSave('serve_miss');
+      commitSave();
     } else if (result === 'lost') {
       setCurrentStep('step4_miss_type');
     } else {

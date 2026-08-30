@@ -90,9 +90,9 @@ export function setActiveMatchId(matchId: string | null): void {
 function sanitizeRally(r: any): Rally {
   let actionCat = r.actionCategory;
   let missType = r.missType;
-  if (actionCat === 'serve_miss') {
-    actionCat = 'serve';
-    if (!missType) missType = 'serve_miss';
+  if (missType === 'serve_miss') {
+    actionCat = 'serve_miss';
+    missType = undefined;
   } else if (actionCat === 'receive_miss') {
     actionCat = 'receive';
     if (!missType) missType = 'net';
