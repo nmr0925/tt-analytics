@@ -18,10 +18,11 @@ export type PointResult = 'won' | 'lost'; // 得点 | 失点
 export type ServerType = 'self' | 'opponent'; // 自分サーブ | 相手サーブ
 
 export type ActionCategory = 
-  | 'serve'      // サーブ
-  | 'receive'    // レシーブ
-  | 'third_ball' // 3球目攻撃
-  | 'rally';     // ラリー
+  | 'serve'       // サーブ
+  | 'receive'     // レシーブ
+  | 'third_ball'  // 3球目攻撃
+  | 'rally'       // ラリー
+  | 'serve_miss'; // サーブミス
 
 // サーブ詳細 (8分割: 横4コース × 縦2長さ)
 export type ServeLength = 'short' | 'long'; // 前 (ショート) | ロング
@@ -166,6 +167,7 @@ export const ACTION_CATEGORY_LABELS: Record<ActionCategory, string> = {
   receive: 'レシーブ',
   third_ball: '３球目攻撃',
   rally: 'ラリー',
+  serve_miss: 'サーブミス',
 };
 
 export const SERVE_LENGTH_LABELS: Record<ServeLength, string> = {

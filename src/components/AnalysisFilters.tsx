@@ -173,6 +173,7 @@ export const AnalysisFilters: React.FC<AnalysisFiltersProps> = ({
             <option value="receive">レシーブ</option>
             <option value="third_ball">３球目攻撃</option>
             <option value="rally">ラリー</option>
+            <option value="serve_miss">サーブミス</option>
           </select>
         </div>
 

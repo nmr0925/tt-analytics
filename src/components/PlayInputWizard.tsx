@@ -93,19 +93,20 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
 
   // 登録実行とステップ初期化
   const commitSave = (customMissType?: MissType) => {
+    const finalResult = actionCategory === 'serve_miss' ? 'lost' : result;
     const newRally: Rally = {
       id: 'rally-' + Date.now(),
       matchId,
       gameNumber,
       scoreMy,
       scoreOpp,
-      result,
-      server,
+      result: finalResult,
+      server: actionCategory === 'serve_miss' ? 'self' : server,
       actionCategory,
       createdAt: new Date().toISOString(),
     };
 
-    if (actionCategory === 'serve') {
+    if (actionCategory === 'serve' || actionCategory === 'serve_miss') {
       newRally.serveLength = serveLength;
       newRally.serveCourse = serveCourse;
       newRally.serveSpin = serveSpin;
@@ -127,8 +128,8 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       newRally.rallyType = rallyType;
     }
 
-    if (result === 'lost') {
-      newRally.missType = customMissType || missType;
+    if (finalResult === 'lost') {
+      newRally.missType = customMissType || (actionCategory === 'serve_miss' ? 'serve_miss' : missType);
     }
 
     onSaveRally(newRally);
@@ -153,6 +154,11 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
 
     if (cat === 'serve') {
       setCurrentStep('step3_serve_course');
+    } else if (cat === 'serve_miss') {
+      setResult('lost');
+      setServer('self');
+      setMissType('serve_miss');
+      setCurrentStep('step3_serve_course');
     } else if (cat === 'receive') {
       setCurrentStep('step3_receive_tech');
     } else if (cat === 'third_ball') {
@@ -162,17 +168,20 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
     }
   };
 
-  // Step 3-A: サーブコース選択
+  // Step 3-A: サーブ/サーブミスコース選択
   const handleSelectServeCourse = (len: ServeLength, crs: ServeCourse) => {
     setServeLength(len);
     setServeCourse(crs);
     setCurrentStep('step3_serve_spin');
   };
 
-  // Step 3-A: サーブ回転選択
+  // Step 3-A: サーブ/サーブミス回転選択
   const handleSelectServeSpin = (spin: ServeSpin) => {
     setServeSpin(spin);
-    if (result === 'lost') {
+    if (actionCategory === 'serve_miss') {
+      // サーブミスの場合は回転選択で即座に失点登録完了
+      commitSave('serve_miss');
+    } else if (result === 'lost') {
       setCurrentStep('step4_miss_type');
     } else {
       commitSave();
@@ -493,6 +502,31 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
                 <div className="text-[10px] text-slate-500">攻撃・ブロック・チャンスボール</div>
               </div>
             </button>
+
+            {/* サーブミス */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('serve_miss')}
+              className="col-span-2 h-20 sm:h-22 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-200 hover:border-rose-400 p-3 text-left flex items-center justify-between transition-all active:scale-95 group shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl font-bold">
+                  ⚠️
+                </div>
+                <div>
+                  <div className="text-base sm:text-lg font-black text-rose-900 flex items-center gap-2">
+                    <span>サーブミス</span>
+                    <span className="text-[10px] font-bold bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full">
+                      失点
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-rose-600">狙ったコース・回転を詳細記録</div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-rose-600 bg-white border border-rose-200 px-3 py-1.5 rounded-xl shadow-xs">
+                コース・回転へ ➔
+              </span>
+            </button>
           </div>
         </div>
       )}
@@ -508,7 +542,13 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
             selectedCourse={serveCourse}
             opponentHand={opponentHand}
             onSelectServe={(len, crs) => handleSelectServeCourse(len, crs)}
-            title={result === 'lost' ? '狙ったサーブコースをタップ' : 'サーブコースをタップ'}
+            title={
+              actionCategory === 'serve_miss'
+                ? '⚠️ 狙ったサーブコースをタップしてください'
+                : result === 'lost'
+                ? '狙ったサーブコースをタップ'
+                : 'サーブコースをタップ'
+            }
           />
         </div>
       )}
@@ -518,8 +558,12 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       {/* ========================================================================= */}
       {currentStep === 'step3_serve_spin' && (
         <div className="space-y-2.5 animate-in fade-in duration-150">
-          <div className="text-xs font-bold text-teal-700 text-center">
-            サーブの回転をタップしてください（タップで即登録）
+          <div className="text-xs font-bold text-center">
+            {actionCategory === 'serve_miss' ? (
+              <span className="text-rose-600">⚠️ 狙ったサーブの回転をタップ（タップで即登録）</span>
+            ) : (
+              <span className="text-teal-700">サーブの回転をタップしてください（タップで即登録）</span>
+            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
