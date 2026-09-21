@@ -92,7 +92,7 @@ export const PlayHistoryList: React.FC<PlayHistoryListProps> = ({
                 {/* サーブ情報 (8分割コース名) */}
                 {r.serveLength && r.serveCourse && (
                   <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded text-[11px] border border-blue-200">
-                    {getServe8WayLabel(r.serveLength, r.serveCourse)}
+                    {r.actionCategory === 'receive' ? `相手:${getServe8WayLabel(r.serveLength, r.serveCourse)}` : getServe8WayLabel(r.serveLength, r.serveCourse)}
                   </span>
                 )}
                 {r.serveSpin && (

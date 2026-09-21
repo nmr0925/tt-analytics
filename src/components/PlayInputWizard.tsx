@@ -31,18 +31,20 @@ import { ChevronLeft, RotateCcw, Sparkles, Check, ArrowRight } from 'lucide-reac
 
 // 現在表示中の画面ステップ
 type WizardStep = 
-  | 'step1_result'          // 得失点 & サーバー
-  | 'step2_category'        // プレー大分類 (サーブ/レシーブ/3球目/ラリー)
-  | 'step3_serve_course'    // サーブ8分割コース
-  | 'step3_serve_spin'      // サーブ回転
-  | 'step3_receive_tech'    // レシーブ技術
-  | 'step3_receive_course'  // レシーブコース
-  | 'step3_3rd_hand'        // 3球目打法 (フォア/バック)
-  | 'step3_3rd_rec_course'  // 相手レシーブコース
-  | 'step3_3rd_my_course'   // 自分の3球目コース
-  | 'step3_3rd_type'        // 3球目種類 (ドライブ等)
-  | 'step3_rally_type'      // ラリー種類
-  | 'step4_miss_type';      // ミス種別
+  | 'step1_result'                // 得失点 & サーバー
+  | 'step2_category'              // プレー大分類 (サーブ/レシーブ/3球目/ラリー/サーブミス)
+  | 'step3_serve_course'          // サーブ8分割コース
+  | 'step3_serve_spin'            // サーブ回転
+  | 'step3_rec_opp_serve_course'  // 相手サーブコース (レシーブ失点時)
+  | 'step3_rec_opp_serve_spin'    // 相手サーブ回転 (レシーブ失点時)
+  | 'step3_receive_tech'          // レシーブ技術
+  | 'step3_receive_course'        // レシーブコース (狙ったコース)
+  | 'step3_3rd_hand'              // 3球目打法 (フォア/バック)
+  | 'step3_3rd_rec_course'        // 相手レシーブコース
+  | 'step3_3rd_my_course'         // 自分の3球目コース
+  | 'step3_3rd_type'              // 3球目種類 (ドライブ等)
+  | 'step3_rally_type'            // ラリー種類
+  | 'step4_miss_type';            // ミス種別
 
 interface PlayInputWizardProps {
   matchId: string;
@@ -70,7 +72,7 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
   const [server, setServer] = useState<ServerType>(defaultServer);
   const [actionCategory, setActionCategory] = useState<ActionCategory>('serve');
 
-  // サーブ
+  // サーブ / 相手サーブ
   const [serveLength, setServeLength] = useState<ServeLength>('short');
   const [serveCourse, setServeCourse] = useState<ServeCourse>('fore');
   const [serveSpin, setServeSpin] = useState<ServeSpin>('backspin');
@@ -106,7 +108,7 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    if (actionCategory === 'serve' || actionCategory === 'serve_miss') {
+    if (actionCategory === 'serve' || actionCategory === 'serve_miss' || actionCategory === 'receive') {
       newRally.serveLength = serveLength;
       newRally.serveCourse = serveCourse;
       newRally.serveSpin = serveSpin;
@@ -161,7 +163,14 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       setServer('self');
       setCurrentStep('step3_serve_course');
     } else if (cat === 'receive') {
-      setCurrentStep('step3_receive_tech');
+      setServer('opponent');
+      if (result === 'lost') {
+        // 失点時: 相手サーブコース -> 相手サーブ回転 -> レシーブ技術 -> 狙ったコース -> ミス理由
+        setCurrentStep('step3_rec_opp_serve_course');
+      } else {
+        // 得点時: レシーブ技術 -> 送球コース
+        setCurrentStep('step3_receive_tech');
+      }
     } else if (cat === 'third_ball') {
       setCurrentStep('step3_3rd_hand');
     } else if (cat === 'rally') {
@@ -189,13 +198,26 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
     }
   };
 
+  // Step 3-Rec-A: 相手サーブコース選択 (レシーブ失点時)
+  const handleSelectRecOppServeCourse = (len: ServeLength, crs: ServeCourse) => {
+    setServeLength(len);
+    setServeCourse(crs);
+    setCurrentStep('step3_rec_opp_serve_spin');
+  };
+
+  // Step 3-Rec-B: 相手サーブ回転選択 (レシーブ失点時)
+  const handleSelectRecOppServeSpin = (spin: ServeSpin) => {
+    setServeSpin(spin);
+    setCurrentStep('step3_receive_tech');
+  };
+
   // Step 3-B: レシーブ技術選択
   const handleSelectReceiveTech = (tech: ReceiveTechnique) => {
     setReceiveTechnique(tech);
     setCurrentStep('step3_receive_course');
   };
 
-  // Step 3-B: レシーブコース選択
+  // Step 3-B: レシーブコース選択 (狙ったコース / 送球コース)
   const handleSelectReceiveCourse = (crs: Course3Way) => {
     setReceiveCourse(crs);
     if (result === 'lost') {
@@ -256,13 +278,23 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
         setCurrentStep('step1_result');
         break;
       case 'step3_serve_course':
-      case 'step3_receive_tech':
+      case 'step3_rec_opp_serve_course':
       case 'step3_3rd_hand':
       case 'step3_rally_type':
         setCurrentStep('step2_category');
         break;
       case 'step3_serve_spin':
         setCurrentStep('step3_serve_course');
+        break;
+      case 'step3_rec_opp_serve_spin':
+        setCurrentStep('step3_rec_opp_serve_course');
+        break;
+      case 'step3_receive_tech':
+        if (result === 'lost' && actionCategory === 'receive') {
+          setCurrentStep('step3_rec_opp_serve_spin');
+        } else {
+          setCurrentStep('step2_category');
+        }
         break;
       case 'step3_receive_course':
         setCurrentStep('step3_receive_tech');
@@ -333,6 +365,50 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
                 className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap"
               >
                 {getServe8WayLabel(serveLength, serveCourse)}
+              </button>
+            </>
+          )}
+
+          {/* レシーブ失点・相手サーブ入力進行時 */}
+          {actionCategory === 'receive' && result === 'lost' && (
+            <>
+              {(currentStep === 'step3_rec_opp_serve_spin' || currentStep === 'step3_receive_tech' || currentStep === 'step3_receive_course' || currentStep === 'step4_miss_type') && (
+                <>
+                  <span className="text-slate-300">/</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep('step3_rec_opp_serve_course')}
+                    className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap"
+                  >
+                    相手:{getServe8WayLabel(serveLength, serveCourse)}
+                  </button>
+                </>
+              )}
+              {(currentStep === 'step3_receive_tech' || currentStep === 'step3_receive_course' || currentStep === 'step4_miss_type') && (
+                <>
+                  <span className="text-slate-300">/</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep('step3_rec_opp_serve_spin')}
+                    className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap"
+                  >
+                    {SERVE_SPIN_LABELS[serveSpin]}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {/* レシーブ技術進行時 */}
+          {actionCategory === 'receive' && (currentStep === 'step3_receive_course' || currentStep === 'step4_miss_type') && (
+            <>
+              <span className="text-slate-300">/</span>
+              <button
+                type="button"
+                onClick={() => setCurrentStep('step3_receive_tech')}
+                className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap"
+              >
+                {RECEIVE_TECHNIQUE_LABELS[receiveTechnique]}
               </button>
             </>
           )}
@@ -583,6 +659,46 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* 画面 3-Rec-A: 相手サーブコース選択 (レシーブ失点時) */}
+      {/* ========================================================================= */}
+      {currentStep === 'step3_rec_opp_serve_course' && (
+        <div className="space-y-2 animate-in fade-in duration-150">
+          <TableTennisCourt
+            mode="serve_select"
+            selectedLength={serveLength}
+            selectedCourse={serveCourse}
+            opponentHand={opponentHand}
+            onSelectServe={(len, crs) => handleSelectRecOppServeCourse(len, crs)}
+            title="⚠️ 相手のサーブコースをタップしてください"
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 画面 3-Rec-B: 相手サーブ回転選択 (レシーブ失点時) */}
+      {/* ========================================================================= */}
+      {currentStep === 'step3_rec_opp_serve_spin' && (
+        <div className="space-y-2.5 animate-in fade-in duration-150">
+          <div className="text-xs font-bold text-rose-600 text-center">
+            ⚠️ 相手のサーブ回転をタップしてください
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(Object.keys(SERVE_SPIN_LABELS) as ServeSpin[]).map((spin) => (
+              <button
+                key={spin}
+                type="button"
+                onClick={() => handleSelectRecOppServeSpin(spin)}
+                className="h-16 rounded-xl bg-slate-50 hover:bg-rose-600 hover:text-white border border-slate-200 font-black text-sm text-slate-800 flex items-center justify-center transition-all active:scale-95 shadow-sm"
+              >
+                {SERVE_SPIN_LABELS[spin]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* 画面 3-B: レシーブ技術選択 */}
       {/* ========================================================================= */}
       {currentStep === 'step3_receive_tech' && (
@@ -611,8 +727,12 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       {/* ========================================================================= */}
       {currentStep === 'step3_receive_course' && (
         <div className="space-y-2.5 animate-in fade-in duration-150">
-          <div className="text-xs font-bold text-blue-700 text-center">
-            レシーブを送ったコースをタップ（タップで即登録）
+          <div className="text-xs font-bold text-center">
+            {result === 'lost' ? (
+              <span className="text-rose-600">狙ったレシーブコースをタップ（ミスの理由選択へ）</span>
+            ) : (
+              <span className="text-blue-700">レシーブを送ったコースをタップ（タップで即登録）</span>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -621,10 +741,16 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
                 key={c}
                 type="button"
                 onClick={() => handleSelectReceiveCourse(c)}
-                className="h-28 rounded-2xl bg-blue-50 hover:bg-blue-600 hover:text-white border-2 border-blue-200 hover:border-blue-400 font-black text-base text-blue-900 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm group"
+                className={`h-28 rounded-2xl border-2 font-black text-base flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm group ${
+                  result === 'lost'
+                    ? 'bg-rose-50 hover:bg-rose-600 hover:text-white border-rose-200 hover:border-rose-400 text-rose-900'
+                    : 'bg-blue-50 hover:bg-blue-600 hover:text-white border-blue-200 hover:border-blue-400 text-blue-900'
+                }`}
               >
                 <span>相手{COURSE_3WAY_LABELS[c]}</span>
-                <span className="text-[10px] text-blue-600 group-hover:text-blue-100 font-normal">送球コース</span>
+                <span className={`text-[10px] font-normal ${result === 'lost' ? 'text-rose-600 group-hover:text-rose-100' : 'text-blue-600 group-hover:text-blue-100'}`}>
+                  {result === 'lost' ? '狙ったコース' : '送球コース'}
+                </span>
               </button>
             ))}
           </div>
