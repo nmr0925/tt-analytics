@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { ServeLength, ServeCourse, Course3Way, OpponentHand, PlayerHand } from '@/types/table-tennis';
@@ -61,9 +61,9 @@ export const TableTennisCourt: React.FC<TableTennisCourtProps> = ({
   };
 
   const course3WayLabels: Record<Course3Way, string> = {
-    fore: opponentHand === 'left' ? '相手バック (左利き)' : '相手フォア',
+    fore: '相手フォア',
     middle: '相手ミドル',
-    back: opponentHand === 'left' ? '相手フォア (左利き)' : '相手バック',
+    back: '相手バック',
   };
 
   // ヒートマップの背景色を計算 (勝率 0% -> 赤, 50% -> 黄, 100% -> 緑)

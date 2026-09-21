@@ -740,18 +740,18 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {(['back', 'middle', 'fore'] as Course3Way[]).map((c) => (
+            {(opponentHand === 'left' ? ['back', 'middle', 'fore'] : ['fore', 'middle', 'back'] as Course3Way[]).map((c) => (
               <button
                 key={c}
                 type="button"
-                onClick={() => handleSelectReceiveCourse(c)}
+                onClick={() => handleSelectReceiveCourse(c as Course3Way)}
                 className={`h-28 rounded-2xl border-2 font-black text-base flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm group ${
                   result === 'lost'
                     ? 'bg-rose-50 hover:bg-rose-600 hover:text-white border-rose-200 hover:border-rose-400 text-rose-900'
                     : 'bg-blue-50 hover:bg-blue-600 hover:text-white border-blue-200 hover:border-blue-400 text-blue-900'
                 }`}
               >
-                <span>相手{COURSE_3WAY_LABELS[c]}</span>
+                <span>相手{COURSE_3WAY_LABELS[c as Course3Way]}</span>
                 <span className={`text-[10px] font-normal ${result === 'lost' ? 'text-rose-600 group-hover:text-rose-100' : 'text-blue-600 group-hover:text-blue-100'}`}>
                   {result === 'lost' ? '狙ったコース' : '送球コース'}
                 </span>
@@ -795,14 +795,14 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {(['fore', 'middle', 'back'] as Course3Way[]).map((c) => (
+            {(myHand === 'left' ? ['back', 'middle', 'fore'] : ['fore', 'middle', 'back'] as Course3Way[]).map((c) => (
               <button
                 key={c}
                 type="button"
-                onClick={() => handleSelect3rdRecCourse(c)}
+                onClick={() => handleSelect3rdRecCourse(c as Course3Way)}
                 className="h-28 rounded-2xl bg-blue-50 hover:bg-blue-600 hover:text-white border-2 border-blue-200 hover:border-blue-400 font-black text-base text-blue-900 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm group"
               >
-                <span>{COURSE_3WAY_LABELS[c]}</span>
+                <span>{COURSE_3WAY_LABELS[c as Course3Way]}</span>
                 <span className="text-[10px] text-blue-600 group-hover:text-blue-100 font-normal">に来た</span>
               </button>
             ))}
@@ -820,14 +820,14 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {(['back', 'middle', 'fore'] as Course3Way[]).map((c) => (
+            {(opponentHand === 'left' ? ['back', 'middle', 'fore'] : ['fore', 'middle', 'back'] as Course3Way[]).map((c) => (
               <button
                 key={c}
                 type="button"
-                onClick={() => handleSelect3rdMyCourse(c)}
+                onClick={() => handleSelect3rdMyCourse(c as Course3Way)}
                 className="h-28 rounded-2xl bg-emerald-50 hover:bg-emerald-600 hover:text-white border-2 border-emerald-200 hover:border-emerald-400 font-black text-base text-emerald-900 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm group"
               >
-                <span>相手{COURSE_3WAY_LABELS[c]}</span>
+                <span>相手{COURSE_3WAY_LABELS[c as Course3Way]}</span>
                 <span className="text-[10px] text-emerald-600 group-hover:text-emerald-100 font-normal">へ打った</span>
               </button>
             ))}
