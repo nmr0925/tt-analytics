@@ -66,19 +66,19 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8 text-slate-800">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between p-4 sm:p-5 bg-slate-50 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Swords className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto pt-3 sm:pt-6 pb-6">
+      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden my-auto max-h-[calc(100dvh-1.5rem)] flex flex-col text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+        {/* ヘッダー（固定） */}
+        <div className="flex items-center justify-between p-3.5 sm:p-5 bg-slate-50 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <Swords className="w-4 h-4 sm:w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">
+              <h2 className="text-sm sm:text-lg font-black text-slate-900">
                 {editingMatch ? '試合情報の編集' : '新規試合の開始・対戦相手登録'}
               </h2>
-              <p className="text-xs text-slate-500">1試合の最初に登録する情報です</p>
+              <p className="text-[10px] sm:text-xs text-slate-500">1試合の最初に登録する情報です</p>
             </div>
           </div>
           <button
@@ -90,10 +90,10 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
           </button>
         </div>
 
-        {/* フォーム本体 */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
+        {/* フォーム本体（内部スクロール） */}
+        <form onSubmit={handleSubmit} className="p-3.5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
           {/* 日付 ＆ ゲーム種類 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 日付 (Date) <span className="text-rose-500">*</span>
