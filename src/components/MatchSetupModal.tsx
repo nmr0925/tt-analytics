@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Match,
   MatchType,
@@ -8,6 +8,7 @@ import {
   OpponentStyle,
   PlayerHand,
   RubberType,
+  ServerType,
   MATCH_TYPE_LABELS,
   OPPONENT_HAND_LABELS,
   OPPONENT_STYLE_LABELS,
@@ -36,11 +37,29 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
   const [opponentName, setOpponentName] = useState<string>(editingMatch?.opponentName || '');
   const [myHand, setMyHand] = useState<PlayerHand>(editingMatch?.myHand || 'right');
   const [opponentHand, setOpponentHand] = useState<OpponentHand>(editingMatch?.opponentHand || 'right');
+  const [initialServer, setInitialServer] = useState<ServerType>(editingMatch?.initialServer || 'self');
   const [opponentStyle, setOpponentStyle] = useState<OpponentStyle>(editingMatch?.opponentStyle || 'shake_attack');
   const [opponentRubberFore, setOpponentRubberFore] = useState<RubberType>(editingMatch?.opponentRubberFore || 'inverted');
   const [opponentRubberBack, setOpponentRubberBack] = useState<RubberType>(editingMatch?.opponentRubberBack || 'inverted');
   const [gameFormat, setGameFormat] = useState<number>(editingMatch?.gameFormat || 5);
   const [notes, setNotes] = useState<string>(editingMatch?.notes || '');
+
+  useEffect(() => {
+    if (isOpen) {
+      setDate(editingMatch?.date || today);
+      setMatchType(editingMatch?.matchType || 'official');
+      setTournamentName(editingMatch?.tournamentName || '');
+      setOpponentName(editingMatch?.opponentName || '');
+      setMyHand(editingMatch?.myHand || 'right');
+      setOpponentHand(editingMatch?.opponentHand || 'right');
+      setInitialServer(editingMatch?.initialServer || 'self');
+      setOpponentStyle(editingMatch?.opponentStyle || 'shake_attack');
+      setOpponentRubberFore(editingMatch?.opponentRubberFore || 'inverted');
+      setOpponentRubberBack(editingMatch?.opponentRubberBack || 'inverted');
+      setGameFormat(editingMatch?.gameFormat || 5);
+      setNotes(editingMatch?.notes || '');
+    }
+  }, [isOpen, editingMatch]);
 
   if (!isOpen) return null;
 
@@ -54,6 +73,7 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
       opponentName: opponentName.trim() || undefined,
       myHand,
       opponentHand,
+      initialServer,
       opponentStyle,
       opponentRubberFore,
       opponentRubberBack,
@@ -206,6 +226,37 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* 第1ゲームの最初のサーブ */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              第1ゲームの最初のサーブ <span className="text-blue-600 font-normal">（ゲーム毎・2点毎に自動交代）</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setInitialServer('self')}
+                className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  initialServer === 'self'
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>🏓 自分サーブから開始</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInitialServer('opponent')}
+                className={`py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  initialServer === 'opponent'
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>🛡️ 相手サーブから開始</span>
+              </button>
             </div>
           </div>
 

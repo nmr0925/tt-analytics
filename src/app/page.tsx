@@ -5,6 +5,8 @@ import {
   Match,
   Rally,
   ServerType,
+  getCurrentServer,
+  isGameFinished,
 } from '@/types/table-tennis';
 import {
   initStorage,
@@ -44,47 +46,28 @@ import { INITIAL_MATCHES, INITIAL_RALLIES } from '@/lib/mock-data';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
-  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
-  const [activeMatchIdState, setActiveMatchIdState] = useState<string | null>(INITIAL_MATCHES[0]?.id || null);
-  const [allRallies, setAllRallies] = useState<Rally[]>(INITIAL_RALLIES);
-
-  // 分析用データ（常にクラウドDBの最新データを参照）
-  const [analyticsMatches, setAnalyticsMatches] = useState<Match[]>(INITIAL_MATCHES);
-  const [analyticsRallies, setAnalyticsRallies] = useState<Rally[]>(INITIAL_RALLIES);
-  const [isCloudLoading, setIsCloudLoading] = useState<boolean>(false);
-  const [isFromCloud, setIsFromCloud] = useState<boolean>(false);
-  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
-
-  // 試合進行用
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [allRallies, setAllRallies] = useState<Rally[]>([]);
+  const [activeMatchIdState, setActiveMatchIdState] = useState<string | null>(null);
   const [currentGameNumber, setCurrentGameNumber] = useState<number>(1);
   const [isMatchModalOpen, setIsMatchModalOpen] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
 
-  // 分析用フィルター
+  // 分析用ステート (クラウドDBデータを優先)
+  const [analyticsMatches, setAnalyticsMatches] = useState<Match[]>([]);
+  const [analyticsRallies, setAnalyticsRallies] = useState<Rally[]>([]);
+  const [isCloudLoading, setIsCloudLoading] = useState<boolean>(false);
+  const [isFromCloud, setIsFromCloud] = useState<boolean>(false);
+
+  // フィルター
   const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter>({
-    dateFrom: '',
-    dateTo: '',
-    matchType: 'all',
-    opponentStyle: 'all',
     opponentHand: 'all',
-    matchId: 'all',
-    server: 'all',
-    result: 'all',
-    actionCategory: 'all',
-    serveLength: 'all',
-    serveCourse: 'all',
-    serveSpin: 'all',
-    receiveTechnique: 'all',
-    receiveCourse: 'all',
-    thirdBallHand: 'all',
-    thirdBallReceiveCourse: 'all',
-    thirdBallTargetCourse: 'all',
-    thirdBallType: 'all',
-    rallyType: 'all',
-    missType: 'all',
+    opponentStyle: 'all',
+    matchType: 'all',
   });
 
-  // 初回ロード
+  // 初期化・データ読み込み
   useEffect(() => {
     initStorage();
     refreshData();
@@ -93,9 +76,8 @@ export default function HomePage() {
 
   const refreshData = () => {
     const loadedMatches = getMatches();
-    const loadedActiveId = getActiveMatchId();
     const loadedRallies = getRallies();
-
+    const loadedActiveId = getActiveMatchId();
     setMatches(loadedMatches);
     setAllRallies(loadedRallies);
     setActiveMatchIdState(loadedActiveId || (loadedMatches[0]?.id ?? null));
@@ -158,26 +140,87 @@ export default function HomePage() {
 
     let myWins = 0;
     let oppWins = 0;
-    // 11点先取かつ2点差でゲーム獲得判定
     games.forEach((val) => {
-      if ((val.won >= 11 && val.won - val.lost >= 2) || (val.won >= 7 && val.won > val.lost && val.won + val.lost >= 15)) {
-        myWins++;
-      } else if ((val.lost >= 11 && val.lost - val.won >= 2) || (val.lost >= 7 && val.lost > val.won && val.won + val.lost >= 15)) {
-        oppWins++;
+      if (isGameFinished(val.won, val.lost)) {
+        if (val.won > val.lost) myWins++;
+        else oppWins++;
       }
     });
 
     return {
-      myGameScore: activeMatch?.myScoreGames || myWins,
-      oppGameScore: activeMatch?.oppScoreGames || oppWins,
+      myGameScore: activeMatch?.isCompleted && activeMatch?.myScoreGames !== undefined ? activeMatch.myScoreGames : myWins,
+      oppGameScore: activeMatch?.isCompleted && activeMatch?.oppScoreGames !== undefined ? activeMatch.oppScoreGames : oppWins,
     };
   }, [currentMatchRallies, activeMatchIdState, activeMatch]);
 
-  // プレー登録ハンドラ（ローカルに0ms即時保存）
+  // プレー登録ハンドラ（ローカルに0ms即時保存 ＆ 自動ゲーム終了・次ゲーム移行判定）
   const handleSaveRally = (rally: Rally) => {
     saveRally(rally);
     const updated = getRallies();
     setAllRallies(updated);
+
+    // 今回のプレー追加後の新スコアを算出
+    const newScoreMy = rally.result === 'won' ? scoreMy + 1 : scoreMy;
+    const newScoreOpp = rally.result === 'lost' ? scoreOpp + 1 : scoreOpp;
+
+    // ゲーム終了判定 (11点以上かつ2点差以上)
+    if (isGameFinished(newScoreMy, newScoreOpp)) {
+      // 該当試合の全ゲーム勝敗を再集計
+      const matchRallies = updated.filter((r) => r.matchId === activeMatchIdState);
+      const games = new Map<number, { won: number; lost: number }>();
+      for (const r of matchRallies) {
+        const g = games.get(r.gameNumber) || { won: 0, lost: 0 };
+        if (r.result === 'won') g.won++;
+        else g.lost++;
+        games.set(r.gameNumber, g);
+      }
+
+      let updatedMyGames = 0;
+      let updatedOppGames = 0;
+      games.forEach((val) => {
+        if (isGameFinished(val.won, val.lost)) {
+          if (val.won > val.lost) updatedMyGames++;
+          else updatedOppGames++;
+        }
+      });
+
+      const gameFormat = activeMatch?.gameFormat || 5;
+      const gamesNeededToWin = Math.ceil(gameFormat / 2);
+
+      if (updatedMyGames >= gamesNeededToWin || updatedOppGames >= gamesNeededToWin) {
+        // マッチ決着
+        const wonMatch = updatedMyGames > updatedOppGames;
+        setSyncStatusMsg(
+          wonMatch
+            ? `🎉 第${currentGameNumber}ゲーム（${newScoreMy}-${newScoreOpp}）でゲームカウント ${updatedMyGames}-${updatedOppGames} となり勝利しました！`
+            : `第${currentGameNumber}ゲーム（${newScoreMy}-${newScoreOpp}）でゲームカウント ${updatedMyGames}-${updatedOppGames} で試合終了しました。`
+        );
+        setTimeout(() => setSyncStatusMsg(null), 6000);
+
+        if (activeMatch) {
+          const updatedMatch: Match = {
+            ...activeMatch,
+            isCompleted: true,
+            myScoreGames: updatedMyGames,
+            oppScoreGames: updatedOppGames,
+          };
+          saveMatch(updatedMatch);
+          refreshData();
+
+          if (isSupabaseConfigured) {
+            syncMatchToCloud(activeMatch.id);
+          }
+        }
+      } else {
+        // 次のゲームへ自動移行
+        const nextGameNum = currentGameNumber + 1;
+        setCurrentGameNumber(nextGameNum);
+        setSyncStatusMsg(
+          `🔔 第${currentGameNumber}ゲーム終了（${newScoreMy}-${newScoreOpp}）！ 第${nextGameNum}ゲームを開始します`
+        );
+        setTimeout(() => setSyncStatusMsg(null), 5000);
+      }
+    }
   };
 
   // プレー削除ハンドラ
@@ -190,12 +233,17 @@ export default function HomePage() {
   // 1手戻す (Undo)
   const handleUndo = () => {
     if (!activeMatchIdState) return;
+    const currentRallies = allRallies.filter((r) => r.matchId === activeMatchIdState);
+    const currentGameRallies = currentRallies.filter((r) => r.gameNumber === currentGameNumber);
+    if (currentGameRallies.length === 0 && currentGameNumber > 1) {
+      setCurrentGameNumber((prev) => prev - 1);
+    }
     undoLastRally(activeMatchIdState);
     const updated = getRallies();
     setAllRallies(updated);
   };
 
-  // 次のゲームへ進む
+  // 次のゲームへ進む (手動)
   const handleNextGame = () => {
     setCurrentGameNumber((prev) => prev + 1);
   };
@@ -234,10 +282,12 @@ export default function HomePage() {
       id: 'match-' + Date.now(),
       date: new Date().toISOString().split('T')[0],
       matchType: 'practice',
+      myHand: 'right',
       opponentHand: 'right',
       opponentStyle: 'shake_attack',
       opponentRubberFore: 'inverted',
       opponentRubberBack: 'inverted',
+      initialServer: 'self',
       gameFormat: 5,
       isCompleted: false,
       createdAt: new Date().toISOString(),
@@ -284,14 +334,15 @@ export default function HomePage() {
     return calculateAnalytics(filteredRalliesData);
   }, [filteredRalliesData]);
 
-  // デフォルトサーバーの決定
+  // デフォルトサーバーの決定 (ゲーム番号・スコア・開始サーバーから自動計算)
   const defaultServer: ServerType = useMemo(() => {
-    const total = scoreMy + scoreOpp;
-    const isDeuce = scoreMy >= 10 && scoreOpp >= 10;
-    return isDeuce
-      ? total % 2 === 0 ? 'self' : 'opponent'
-      : Math.floor(total / 2) % 2 === 0 ? 'self' : 'opponent';
-  }, [scoreMy, scoreOpp]);
+    return getCurrentServer(
+      activeMatch?.initialServer || 'self',
+      currentGameNumber,
+      scoreMy,
+      scoreOpp
+    );
+  }, [activeMatch?.initialServer, currentGameNumber, scoreMy, scoreOpp]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white">

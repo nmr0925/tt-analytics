@@ -72,7 +72,6 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
 
   // 入力データ状態
   const [result, setResult] = useState<PointResult>('won');
-  const [server, setServer] = useState<ServerType>(defaultServer);
   const [actionCategory, setActionCategory] = useState<ActionCategory>('serve');
 
   // サーブ / 相手サーブ
@@ -99,6 +98,13 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
   // 登録実行とステップ初期化
   const commitSave = (customMissType?: MissType) => {
     const finalResult = actionCategory === 'serve_miss' ? 'lost' : result;
+    const effectiveServer: ServerType =
+      actionCategory === 'serve' || actionCategory === 'serve_miss'
+        ? 'self'
+        : actionCategory === 'receive'
+        ? 'opponent'
+        : defaultServer;
+
     const newRally: Rally = {
       id: 'rally-' + Date.now(),
       matchId,
@@ -106,7 +112,7 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       scoreMy,
       scoreOpp,
       result: finalResult,
-      server: actionCategory === 'serve_miss' ? 'self' : server,
+      server: effectiveServer,
       actionCategory,
       createdAt: new Date().toISOString(),
     };
@@ -163,10 +169,8 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       setCurrentStep('step3_serve_course');
     } else if (cat === 'serve_miss') {
       setResult('lost');
-      setServer('self');
       setCurrentStep('step3_serve_course');
     } else if (cat === 'receive') {
-      setServer('opponent');
       if (result === 'lost') {
         // 失点時: 相手サーブコース -> 相手サーブ回転 -> レシーブ技術 -> 狙ったコース -> ミス理由
         setCurrentStep('step3_rec_opp_serve_course');
@@ -466,32 +470,11 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
             </button>
           </div>
 
-          {/* サーバー切替バー */}
-          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs">
+          {/* サーバー表示バー（手動変更不可・自動判定） */}
+          <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
             <span className="text-slate-500 font-medium">現在のサーバー:</span>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => setServer('self')}
-                className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                  server === 'self'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
-                }`}
-              >
-                自分サーブ
-              </button>
-              <button
-                type="button"
-                onClick={() => setServer('opponent')}
-                className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                  server === 'opponent'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
-                }`}
-              >
-                相手サーブ
-              </button>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm">
+              <span>{defaultServer === 'self' ? '🏓 自分サーブ' : '🛡️ 相手サーブ'}</span>
             </div>
           </div>
         </div>

@@ -90,12 +90,46 @@ export interface Match {
   opponentStyle: OpponentStyle;
   opponentRubberFore: RubberType;
   opponentRubberBack: RubberType;
+  initialServer?: ServerType; // 最初のサーブ (デフォルト: self)
   gameFormat: number; // 3, 5, 7
   myScoreGames?: number;
   oppScoreGames?: number;
   isCompleted?: boolean;
   notes?: string;
   createdAt: string;
+}
+
+// 指定ゲーム・スコアにおける現在のサーバーを計算
+export function getCurrentServer(
+  initialServer: ServerType = 'self',
+  gameNumber: number,
+  scoreMy: number,
+  scoreOpp: number
+): ServerType {
+  // ゲームの開始サーバー (奇数ゲームはinitialServer、偶数ゲームは反転)
+  const isOddGame = gameNumber % 2 === 1;
+  const gameStartServer: ServerType = isOddGame
+    ? initialServer
+    : (initialServer === 'self' ? 'opponent' : 'self');
+  const otherServer: ServerType = gameStartServer === 'self' ? 'opponent' : 'self';
+
+  const totalPoints = scoreMy + scoreOpp;
+  const isDeuce = scoreMy >= 10 && scoreOpp >= 10;
+
+  if (isDeuce) {
+    // デュース時: 1本交代
+    return totalPoints % 2 === 0 ? gameStartServer : otherServer;
+  } else {
+    // 通常時: 2本交代
+    return Math.floor(totalPoints / 2) % 2 === 0 ? gameStartServer : otherServer;
+  }
+}
+
+// ゲームが決着したか判定 (11点以上かつ2点差以上)
+export function isGameFinished(scoreMy: number, scoreOpp: number): boolean {
+  if (scoreMy >= 11 && scoreMy - scoreOpp >= 2) return true;
+  if (scoreOpp >= 11 && scoreOpp - scoreMy >= 2) return true;
+  return false;
 }
 
 // 1プレーの記録

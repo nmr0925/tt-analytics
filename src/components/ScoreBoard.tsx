@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Match, OPPONENT_HAND_LABELS, OPPONENT_STYLE_LABELS } from '@/types/table-tennis';
+import { Match, OPPONENT_HAND_LABELS, OPPONENT_STYLE_LABELS, getCurrentServer } from '@/types/table-tennis';
 import { Undo2, FastForward, CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface ScoreBoardProps {
@@ -29,11 +29,13 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
   onCompleteMatch,
   canUndo,
 }) => {
-  const totalPoints = scoreMy + scoreOpp;
-  const isDeuce = scoreMy >= 10 && scoreOpp >= 10;
-  const isMyServe = isDeuce
-    ? totalPoints % 2 === 0
-    : Math.floor(totalPoints / 2) % 2 === 0;
+  const currentServer = getCurrentServer(
+    match.initialServer || 'self',
+    currentGameNumber,
+    scoreMy,
+    scoreOpp
+  );
+  const isMyServe = currentServer === 'self';
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:p-3.5 shadow-sm text-slate-800">
