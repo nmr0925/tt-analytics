@@ -385,6 +385,7 @@ export default function HomePage() {
                     scoreOpp={scoreOpp}
                     defaultServer={defaultServer}
                     opponentHand={activeMatch.opponentHand}
+                    myHand={activeMatch.myHand || 'right'}
                     onSaveRally={handleSaveRally}
                   />
                 </div>

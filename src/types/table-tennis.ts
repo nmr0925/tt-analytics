@@ -1,5 +1,6 @@
 export type MatchType = 'official' | 'practice' | 'unofficial';
 
+export type PlayerHand = 'right' | 'left';
 export type OpponentHand = 'right' | 'left';
 
 export type OpponentStyle = 
@@ -84,6 +85,7 @@ export interface Match {
   matchType: MatchType;
   tournamentName?: string;
   opponentName?: string;
+  myHand?: PlayerHand; // 自分の利き腕 (デフォルト: right)
   opponentHand: OpponentHand;
   opponentStyle: OpponentStyle;
   opponentRubberFore: RubberType;

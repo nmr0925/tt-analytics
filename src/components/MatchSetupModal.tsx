@@ -6,6 +6,7 @@ import {
   MatchType,
   OpponentHand,
   OpponentStyle,
+  PlayerHand,
   RubberType,
   MATCH_TYPE_LABELS,
   OPPONENT_HAND_LABELS,
@@ -33,6 +34,7 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
   const [matchType, setMatchType] = useState<MatchType>(editingMatch?.matchType || 'official');
   const [tournamentName, setTournamentName] = useState<string>(editingMatch?.tournamentName || '');
   const [opponentName, setOpponentName] = useState<string>(editingMatch?.opponentName || '');
+  const [myHand, setMyHand] = useState<PlayerHand>(editingMatch?.myHand || 'right');
   const [opponentHand, setOpponentHand] = useState<OpponentHand>(editingMatch?.opponentHand || 'right');
   const [opponentStyle, setOpponentStyle] = useState<OpponentStyle>(editingMatch?.opponentStyle || 'shake_attack');
   const [opponentRubberFore, setOpponentRubberFore] = useState<RubberType>(editingMatch?.opponentRubberFore || 'inverted');
@@ -50,6 +52,7 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
       matchType,
       tournamentName: tournamentName.trim() || undefined,
       opponentName: opponentName.trim() || undefined,
+      myHand,
       opponentHand,
       opponentStyle,
       opponentRubberFore,
@@ -159,8 +162,30 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
             </div>
           </div>
 
-          {/* 相手の利き腕 ＆ ゲーム形式 */}
+          {/* 自分の利き腕 ＆ 相手の利き腕 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                自分の利き腕 <span className="text-emerald-600 font-normal">（コート視点に反映）</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['right', 'left'] as PlayerHand[]).map((hand) => (
+                  <button
+                    key={hand}
+                    type="button"
+                    onClick={() => setMyHand(hand)}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      myHand === hand
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {hand === 'right' ? '右利き' : '左利き'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 相手の利き腕 <span className="text-rose-500">*</span>
@@ -182,27 +207,28 @@ export const MatchSetupModal: React.FC<MatchSetupModalProps> = ({
                 ))}
               </div>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                マッチ形式
-              </label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[3, 5, 7].map((fmt) => (
-                  <button
-                    key={fmt}
-                    type="button"
-                    onClick={() => setGameFormat(fmt)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                      gameFormat === fmt
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {fmt}ゲーム制
-                  </button>
-                ))}
-              </div>
+          {/* マッチ形式 */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              マッチ形式
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[3, 5, 7].map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setGameFormat(fmt)}
+                  className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                    gameFormat === fmt
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {fmt}ゲーム制
+                </button>
+              ))}
             </div>
           </div>
 

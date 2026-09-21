@@ -16,6 +16,7 @@ import {
   ThirdBallHand,
   ThirdBallType,
   OpponentHand,
+  PlayerHand,
   ACTION_CATEGORY_LABELS,
   MISS_TYPE_LABELS,
   RALLY_TYPE_LABELS,
@@ -53,6 +54,7 @@ interface PlayInputWizardProps {
   scoreOpp: number;
   defaultServer: ServerType;
   opponentHand?: OpponentHand;
+  myHand?: PlayerHand;
   onSaveRally: (rally: Rally) => void;
 }
 
@@ -63,6 +65,7 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
   scoreOpp,
   defaultServer,
   opponentHand = 'right',
+  myHand = 'right',
   onSaveRally,
 }) => {
   const [currentStep, setCurrentStep] = useState<WizardStep>('step1_result');
@@ -664,10 +667,11 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
       {currentStep === 'step3_rec_opp_serve_course' && (
         <div className="space-y-2 animate-in fade-in duration-150">
           <TableTennisCourt
-            mode="serve_select"
+            mode="receive_serve_select"
             selectedLength={serveLength}
             selectedCourse={serveCourse}
             opponentHand={opponentHand}
+            myHand={myHand}
             onSelectServe={(len, crs) => handleSelectRecOppServeCourse(len, crs)}
             title="⚠️ 相手のサーブコースをタップしてください"
           />
