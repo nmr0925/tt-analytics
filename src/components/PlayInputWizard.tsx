@@ -26,6 +26,7 @@ import {
   THIRD_BALL_TYPE_LABELS,
   COURSE_3WAY_LABELS,
   getServe8WayLabel,
+  isGameFinished,
 } from '@/types/table-tennis';
 import { TableTennisCourt } from './TableTennisCourt';
 import { ChevronLeft, RotateCcw, Sparkles, Check, ArrowRight } from 'lucide-react';
@@ -69,6 +70,21 @@ export const PlayInputWizard: React.FC<PlayInputWizardProps> = ({
   onSaveRally,
 }) => {
   const [currentStep, setCurrentStep] = useState<WizardStep>('step1_result');
+
+  // ゲーム終了済みガード
+  if (isGameFinished(scoreMy, scoreOpp)) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 text-center shadow-sm space-y-3">
+        <div className="text-3xl">🏁</div>
+        <div className="text-base font-black text-slate-800">
+          第{gameNumber}ゲーム終了（スコア: {scoreMy} - {scoreOpp}）
+        </div>
+        <p className="text-xs text-slate-500">
+          このゲームはすでに決着しています。スコアボードの「次ゲーム」または「終了」をタップしてください。
+        </p>
+      </div>
+    );
+  }
 
   // 入力データ状態
   const [result, setResult] = useState<PointResult>('won');

@@ -40,6 +40,7 @@ import { ChartBreakdowns } from '@/components/ChartBreakdowns';
 import { MatchesList } from '@/components/MatchesList';
 import { DataManagement } from '@/components/DataManagement';
 import { TopMenu } from '@/components/TopMenu';
+import { MatchResultView } from '@/components/MatchResultView';
 import { Swords, PlusCircle, Cloud, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 import { INITIAL_MATCHES, INITIAL_RALLIES } from '@/lib/mock-data';
@@ -411,6 +412,28 @@ export default function HomePage() {
                   新規試合を開始する
                 </button>
               </div>
+            ) : activeMatch.isCompleted ? (
+              <MatchResultView
+                match={activeMatch}
+                rallies={currentMatchRallies}
+                myGameScore={myGameScore}
+                oppGameScore={oppGameScore}
+                onGoToHome={() => setActiveTab('home')}
+                onGoToAnalysis={() => {
+                  setAnalyticsFilter((prev) => ({ ...prev, matchId: activeMatch.id }));
+                  setActiveTab('analysis');
+                }}
+                onGoToMatches={() => setActiveTab('matches')}
+                onReopenMatch={() => {
+                  const updatedMatch: Match = {
+                    ...activeMatch,
+                    isCompleted: false,
+                  };
+                  saveMatch(updatedMatch);
+                  refreshData();
+                  handleUndo();
+                }}
+              />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 {/* 左側: スコアボード ＆ 入力フォーム (7/12) */}
