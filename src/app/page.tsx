@@ -37,12 +37,13 @@ import { CourtHeatmap } from '@/components/CourtHeatmap';
 import { ChartBreakdowns } from '@/components/ChartBreakdowns';
 import { MatchesList } from '@/components/MatchesList';
 import { DataManagement } from '@/components/DataManagement';
+import { TopMenu } from '@/components/TopMenu';
 import { Swords, PlusCircle, Cloud, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 import { INITIAL_MATCHES, INITIAL_RALLIES } from '@/lib/mock-data';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<TabType>('input');
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
   const [activeMatchIdState, setActiveMatchIdState] = useState<string | null>(INITIAL_MATCHES[0]?.id || null);
   const [allRallies, setAllRallies] = useState<Rally[]>(INITIAL_RALLIES);
@@ -227,6 +228,30 @@ export default function HomePage() {
     }
   };
 
+  // 新規試合を空の状態で開始
+  const handleStartNewMatch = () => {
+    const newMatch: Match = {
+      id: 'match-' + Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      matchType: 'practice',
+      opponentHand: 'right',
+      opponentStyle: 'shake_attack',
+      opponentRubberFore: 'inverted',
+      opponentRubberBack: 'inverted',
+      gameFormat: 5,
+      isCompleted: false,
+      createdAt: new Date().toISOString(),
+    };
+    saveMatch(newMatch);
+    setActiveMatchId(newMatch.id);
+    setActiveMatchIdState(newMatch.id);
+    refreshData();
+    setCurrentGameNumber(1);
+    setEditingMatch(newMatch);
+    setIsMatchModalOpen(true);
+    setActiveTab('input');
+  };
+
   // 試合の保存（新規・編集）
   const handleSaveMatch = (match: Match) => {
     saveMatch(match);
@@ -274,10 +299,7 @@ export default function HomePage() {
       <Navbar
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onNewMatchClick={() => {
-          setEditingMatch(null);
-          setIsMatchModalOpen(true);
-        }}
+        onNewMatchClick={handleStartNewMatch}
         activeMatchName={
           activeMatch
             ? `${activeMatch.date} vs ${activeMatch.opponentName || '対戦相手'}`
@@ -295,6 +317,21 @@ export default function HomePage() {
 
       {/* メインコンテンツ */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
+        {/* ========================================================================= */}
+        {/* 0. トップメニュータブ (Home Tab) */}
+        {/* ========================================================================= */}
+        {activeTab === 'home' && (
+          <TopMenu
+            onStartNewMatch={handleStartNewMatch}
+            onGoToAnalysis={() => handleTabChange('analysis')}
+            onGoToMatches={() => handleTabChange('matches')}
+            onGoToDataManagement={() => handleTabChange('settings')}
+            onSelectRecentMatch={(matchId) => handleSelectActiveMatch(matchId)}
+            recentMatches={matches}
+            totalRalliesCount={allRallies.length}
+          />
+        )}
+
         {/* ========================================================================= */}
         {/* 1. 入力タブ (Input Tab) */}
         {/* ========================================================================= */}
