@@ -37,6 +37,7 @@ import { AnalysisFilters } from '@/components/AnalysisFilters';
 import { KpiCards } from '@/components/KpiCards';
 import { CourtHeatmap } from '@/components/CourtHeatmap';
 import { ChartBreakdowns } from '@/components/ChartBreakdowns';
+import { TechniqueBreakdownTable } from '@/components/TechniqueBreakdownTable';
 import { MatchesList } from '@/components/MatchesList';
 import { DataManagement } from '@/components/DataManagement';
 import { TopMenu } from '@/components/TopMenu';
@@ -549,6 +550,9 @@ export default function HomePage() {
 
             {/* 卓球台ヒートマップ */}
             <CourtHeatmap summary={analyticsSummary} />
+
+            {/* 技術別 得失点率一覧テーブル */}
+            <TechniqueBreakdownTable summary={analyticsSummary} />
 
             {/* チャート・内訳グラフ */}
             <ChartBreakdowns summary={analyticsSummary} />

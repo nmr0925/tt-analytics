@@ -1,4 +1,30 @@
-import { Match, Rally, OpponentStyle, OpponentHand, ActionCategory, ReceiveTechnique, ServeLength, ServeCourse, ServeSpin, ThirdBallHand, ThirdBallType, RallyType, MissType } from '@/types/table-tennis';
+import {
+  Match,
+  Rally,
+  OpponentStyle,
+  OpponentHand,
+  ActionCategory,
+  ReceiveTechnique,
+  ServeLength,
+  ServeCourse,
+  ServeSpin,
+  ThirdBallHand,
+  ThirdBallType,
+  RallyType,
+  MissType,
+  Course3Way,
+  SERVE_SPIN_LABELS,
+  SERVE_LENGTH_LABELS,
+  SERVE_COURSE_LABELS,
+  getServe8WayLabel,
+  RECEIVE_TECHNIQUE_LABELS,
+  COURSE_3WAY_LABELS,
+  THIRD_BALL_HAND_LABELS,
+  THIRD_BALL_TYPE_LABELS,
+  RALLY_TYPE_LABELS,
+  ACTION_CATEGORY_LABELS,
+  MISS_TYPE_LABELS,
+} from '@/types/table-tennis';
 
 export interface AnalyticsFilter {
   dateFrom?: string;
@@ -37,6 +63,43 @@ export interface AnalyticsFilter {
 
 export interface EnrichedRally extends Rally {
   match?: Match;
+}
+
+// 各技術ごとの得失点統計アイテム
+export interface TechniqueStatsItem {
+  key: string;
+  name: string;
+  subLabel?: string;
+  category: ActionCategory | 'other';
+  total: number;
+  won: number;
+  lost: number;
+  winRate: number; // % 得点率
+  lossRate: number; // % 失点率
+}
+
+// 各技術ごとの詳細得失点一覧まとめ
+export interface DetailedTechniqueSummary {
+  // 1. サーブ詳細一覧 (回転別、コース別、回転×コース組み合わせ)
+  serveBySpin: TechniqueStatsItem[];
+  serveByCourse: TechniqueStatsItem[];
+  serveByCombo: TechniqueStatsItem[];
+
+  // 2. レシーブ詳細一覧 (技術別、狙ったコース別、技術×コース組み合わせ)
+  receiveByTech: TechniqueStatsItem[];
+  receiveByCourse: TechniqueStatsItem[];
+  receiveByCombo: TechniqueStatsItem[];
+
+  // 3. ３球目攻撃詳細一覧 (打法×球種別、相手レシーブコース別、自分の打球コース別)
+  thirdBallByType: TechniqueStatsItem[];
+  thirdBallByRecCourse: TechniqueStatsItem[];
+  thirdBallByTargetCourse: TechniqueStatsItem[];
+
+  // 4. ラリー詳細一覧 (展開別)
+  rallyByType: TechniqueStatsItem[];
+
+  // 5. 技術大分類一覧 (サーブ、レシーブ、3球目、ラリー、サーブミス)
+  byCategorySummary: TechniqueStatsItem[];
 }
 
 export interface AnalyticsSummary {
@@ -89,6 +152,9 @@ export interface AnalyticsSummary {
     count: number;
     percentage: number;
   }>;
+
+  // 各技術ごとの詳細得失点率サマリー
+  techniqueSummary: DetailedTechniqueSummary;
 }
 
 // フィルタリング処理
@@ -193,6 +259,20 @@ export function filterRallies(
 
 // 集計値計算
 export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsSummary {
+  const emptyTechniqueSummary: DetailedTechniqueSummary = {
+    serveBySpin: [],
+    serveByCourse: [],
+    serveByCombo: [],
+    receiveByTech: [],
+    receiveByCourse: [],
+    receiveByCombo: [],
+    thirdBallByType: [],
+    thirdBallByRecCourse: [],
+    thirdBallByTargetCourse: [],
+    rallyByType: [],
+    byCategorySummary: [],
+  };
+
   const totalRallies = filteredRallies.length;
   if (totalRallies === 0) {
     return {
@@ -213,6 +293,7 @@ export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsS
       serveHeatmap: {},
       thirdBallTargetHeatmap: {},
       byMissType: [],
+      techniqueSummary: emptyTechniqueSummary,
     };
   }
 
@@ -230,6 +311,25 @@ export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsS
   const serveHeatmap: Record<string, { total: number; won: number; winRate: number }> = {};
   const thirdBallHeatmap: Record<string, { total: number; won: number; winRate: number }> = {};
   const missMap = new Map<MissType, number>();
+
+  // 技術詳細マップ
+  // 1. サーブ
+  const serveSpinMap = new Map<ServeSpin, { total: number; won: number; lost: number }>();
+  const serveCourseMap = new Map<string, { total: number; won: number; lost: number; length: ServeLength; course: ServeCourse }>();
+  const serveComboMap = new Map<string, { total: number; won: number; lost: number; spin: ServeSpin; length: ServeLength; course: ServeCourse }>();
+
+  // 2. レシーブ
+  const receiveTechMap = new Map<ReceiveTechnique, { total: number; won: number; lost: number }>();
+  const receiveCourseMap = new Map<Course3Way, { total: number; won: number; lost: number }>();
+  const receiveComboMap = new Map<string, { total: number; won: number; lost: number; tech: ReceiveTechnique; course: Course3Way }>();
+
+  // 3. ３球目
+  const thirdBallTypeMap = new Map<string, { total: number; won: number; lost: number; hand: ThirdBallHand; type: ThirdBallType }>();
+  const thirdBallRecCourseMap = new Map<Course3Way, { total: number; won: number; lost: number }>();
+  const thirdBallTargetCourseMap = new Map<Course3Way, { total: number; won: number; lost: number }>();
+
+  // 4. ラリー
+  const rallyTypeMap = new Map<RallyType, { total: number; won: number; lost: number }>();
 
   for (const r of filteredRallies) {
     const isWon = r.result === 'won';
@@ -264,12 +364,138 @@ export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsS
     else cat.lost++;
     categoryMap.set(r.actionCategory, cat);
 
-    // レシーブ技術別
-    if (r.receiveTechnique) {
-      const rec = receiveMap.get(r.receiveTechnique) || { total: 0, won: 0 };
-      rec.total++;
-      if (isWon) rec.won++;
-      receiveMap.set(r.receiveTechnique, rec);
+    // ==========================================
+    // 1. サーブ詳細集計 (サーブ ＆ サーブミス)
+    // ==========================================
+    if (r.actionCategory === 'serve' || r.actionCategory === 'serve_miss') {
+      if (r.serveSpin) {
+        const cur = serveSpinMap.get(r.serveSpin) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        serveSpinMap.set(r.serveSpin, cur);
+      }
+
+      if (r.serveLength && r.serveCourse) {
+        const cKey = `${r.serveLength}_${r.serveCourse}`;
+        const cur = serveCourseMap.get(cKey) || {
+          total: 0,
+          won: 0,
+          lost: 0,
+          length: r.serveLength,
+          course: r.serveCourse,
+        };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        serveCourseMap.set(cKey, cur);
+
+        if (r.serveSpin) {
+          const comboKey = `${r.serveSpin}_${r.serveLength}_${r.serveCourse}`;
+          const combo = serveComboMap.get(comboKey) || {
+            total: 0,
+            won: 0,
+            lost: 0,
+            spin: r.serveSpin,
+            length: r.serveLength,
+            course: r.serveCourse,
+          };
+          combo.total++;
+          if (isWon) combo.won++;
+          else combo.lost++;
+          serveComboMap.set(comboKey, combo);
+        }
+      }
+    }
+
+    // ==========================================
+    // 2. レシーブ詳細集計
+    // ==========================================
+    if (r.actionCategory === 'receive') {
+      if (r.receiveTechnique) {
+        const rec = receiveMap.get(r.receiveTechnique) || { total: 0, won: 0 };
+        rec.total++;
+        if (isWon) rec.won++;
+        receiveMap.set(r.receiveTechnique, rec);
+
+        const cur = receiveTechMap.get(r.receiveTechnique) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        receiveTechMap.set(r.receiveTechnique, cur);
+      }
+
+      if (r.receiveCourse) {
+        const cur = receiveCourseMap.get(r.receiveCourse) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        receiveCourseMap.set(r.receiveCourse, cur);
+      }
+
+      if (r.receiveTechnique && r.receiveCourse) {
+        const comboKey = `${r.receiveTechnique}_${r.receiveCourse}`;
+        const combo = receiveComboMap.get(comboKey) || {
+          total: 0,
+          won: 0,
+          lost: 0,
+          tech: r.receiveTechnique,
+          course: r.receiveCourse,
+        };
+        combo.total++;
+        if (isWon) combo.won++;
+        else combo.lost++;
+        receiveComboMap.set(comboKey, combo);
+      }
+    }
+
+    // ==========================================
+    // 3. ３球目攻撃詳細集計
+    // ==========================================
+    if (r.actionCategory === 'third_ball') {
+      if (r.thirdBallHand && r.thirdBallType) {
+        const key = `${r.thirdBallHand}_${r.thirdBallType}`;
+        const cur = thirdBallTypeMap.get(key) || {
+          total: 0,
+          won: 0,
+          lost: 0,
+          hand: r.thirdBallHand,
+          type: r.thirdBallType,
+        };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        thirdBallTypeMap.set(key, cur);
+      }
+
+      if (r.thirdBallReceiveCourse) {
+        const cur = thirdBallRecCourseMap.get(r.thirdBallReceiveCourse) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        thirdBallRecCourseMap.set(r.thirdBallReceiveCourse, cur);
+      }
+
+      if (r.thirdBallTargetCourse) {
+        const cur = thirdBallTargetCourseMap.get(r.thirdBallTargetCourse) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        thirdBallTargetCourseMap.set(r.thirdBallTargetCourse, cur);
+      }
+    }
+
+    // ==========================================
+    // 4. ラリー詳細集計
+    // ==========================================
+    if (r.actionCategory === 'rally') {
+      if (r.rallyType) {
+        const cur = rallyTypeMap.get(r.rallyType) || { total: 0, won: 0, lost: 0 };
+        cur.total++;
+        if (isWon) cur.won++;
+        else cur.lost++;
+        rallyTypeMap.set(r.rallyType, cur);
+      }
     }
 
     // サーブヒートマップ (length_course キー)
@@ -329,6 +555,104 @@ export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsS
     percentage: missCount > 0 ? Math.round((count / missCount) * 100) : 0,
   }));
 
+  // ==========================================
+  // DetailedTechniqueSummary の成型とソート
+  // ==========================================
+  const formatStats = (
+    key: string,
+    name: string,
+    cat: ActionCategory | 'other',
+    total: number,
+    won: number,
+    lost: number,
+    subLabel?: string
+  ): TechniqueStatsItem => ({
+    key,
+    name,
+    subLabel,
+    category: cat,
+    total,
+    won,
+    lost,
+    winRate: total > 0 ? Math.round((won / total) * 100) : 0,
+    lossRate: total > 0 ? Math.round((lost / total) * 100) : 0,
+  });
+
+  // 1. サーブ詳細
+  const serveBySpin: TechniqueStatsItem[] = Array.from(serveSpinMap.entries())
+    .map(([spin, val]) => formatStats(spin, SERVE_SPIN_LABELS[spin] || spin, 'serve', val.total, val.won, val.lost, 'サーブ回転'))
+    .sort((a, b) => b.total - a.total);
+
+  const serveByCourse: TechniqueStatsItem[] = Array.from(serveCourseMap.entries())
+    .map(([k, val]) => formatStats(k, getServe8WayLabel(val.length, val.course), 'serve', val.total, val.won, val.lost, 'コース・長さ'))
+    .sort((a, b) => b.total - a.total);
+
+  const serveByCombo: TechniqueStatsItem[] = Array.from(serveComboMap.entries())
+    .map(([k, val]) => {
+      const name = `${getServe8WayLabel(val.length, val.course)} (${SERVE_SPIN_LABELS[val.spin]})`;
+      return formatStats(k, name, 'serve', val.total, val.won, val.lost, 'コース×回転詳細');
+    })
+    .sort((a, b) => b.total - a.total);
+
+  // 2. レシーブ詳細
+  const receiveByTech: TechniqueStatsItem[] = Array.from(receiveTechMap.entries())
+    .map(([tech, val]) => formatStats(tech, RECEIVE_TECHNIQUE_LABELS[tech] || tech, 'receive', val.total, val.won, val.lost, 'レシーブ技術'))
+    .sort((a, b) => b.total - a.total);
+
+  const receiveByCourse: TechniqueStatsItem[] = Array.from(receiveCourseMap.entries())
+    .map(([crs, val]) => formatStats(crs, `相手${COURSE_3WAY_LABELS[crs]}`, 'receive', val.total, val.won, val.lost, '狙ったコース'))
+    .sort((a, b) => b.total - a.total);
+
+  const receiveByCombo: TechniqueStatsItem[] = Array.from(receiveComboMap.entries())
+    .map(([k, val]) => {
+      const name = `${RECEIVE_TECHNIQUE_LABELS[val.tech]} → 相手${COURSE_3WAY_LABELS[val.course]}`;
+      return formatStats(k, name, 'receive', val.total, val.won, val.lost, '技術×コース');
+    })
+    .sort((a, b) => b.total - a.total);
+
+  // 3. ３球目詳細
+  const thirdBallByType: TechniqueStatsItem[] = Array.from(thirdBallTypeMap.entries())
+    .map(([k, val]) => {
+      const name = `${THIRD_BALL_HAND_LABELS[val.hand]} ${THIRD_BALL_TYPE_LABELS[val.type]}`;
+      return formatStats(k, name, 'third_ball', val.total, val.won, val.lost, '打法・球種');
+    })
+    .sort((a, b) => b.total - a.total);
+
+  const thirdBallByRecCourse: TechniqueStatsItem[] = Array.from(thirdBallRecCourseMap.entries())
+    .map(([crs, val]) => formatStats(crs, `${COURSE_3WAY_LABELS[crs]}に来た球`, 'third_ball', val.total, val.won, val.lost, '相手のレシーブコース'))
+    .sort((a, b) => b.total - a.total);
+
+  const thirdBallByTargetCourse: TechniqueStatsItem[] = Array.from(thirdBallTargetCourseMap.entries())
+    .map(([crs, val]) => formatStats(crs, `相手${COURSE_3WAY_LABELS[crs]}へ攻撃`, 'third_ball', val.total, val.won, val.lost, '狙ったコース'))
+    .sort((a, b) => b.total - a.total);
+
+  // 4. ラリー詳細
+  const rallyByType: TechniqueStatsItem[] = Array.from(rallyTypeMap.entries())
+    .map(([rtype, val]) => formatStats(rtype, RALLY_TYPE_LABELS[rtype] || rtype, 'rally', val.total, val.won, val.lost, 'ラリー展開'))
+    .sort((a, b) => b.total - a.total);
+
+  // 5. 大分類サマリー
+  const byCategorySummary: TechniqueStatsItem[] = Array.from(categoryMap.entries())
+    .map(([cat, val]) => {
+      const label = ACTION_CATEGORY_LABELS[cat] || cat;
+      return formatStats(cat, label, cat, val.total, val.won, val.lost, '大分類');
+    })
+    .sort((a, b) => b.total - a.total);
+
+  const techniqueSummary: DetailedTechniqueSummary = {
+    serveBySpin,
+    serveByCourse,
+    serveByCombo,
+    receiveByTech,
+    receiveByCourse,
+    receiveByCombo,
+    thirdBallByType,
+    thirdBallByRecCourse,
+    thirdBallByTargetCourse,
+    rallyByType,
+    byCategorySummary,
+  };
+
   return {
     totalRallies,
     wonCount,
@@ -347,5 +671,6 @@ export function calculateAnalytics(filteredRallies: EnrichedRally[]): AnalyticsS
     serveHeatmap,
     thirdBallTargetHeatmap: thirdBallHeatmap,
     byMissType,
+    techniqueSummary,
   };
 }
