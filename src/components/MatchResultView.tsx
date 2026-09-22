@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Match, Rally, OPPONENT_HAND_LABELS, OPPONENT_STYLE_LABELS, isGameFinished } from '@/types/table-tennis';
 import {
   Trophy,
@@ -15,7 +15,9 @@ import {
   Calendar,
   User,
   ArrowRight,
+  Volume2,
 } from 'lucide-react';
+import { playVictoryFanfare, playDefeatSound, unlockAudioContext } from '@/lib/sound-effects';
 
 interface MatchResultViewProps {
   match: Match;
@@ -39,6 +41,29 @@ export const MatchResultView: React.FC<MatchResultViewProps> = ({
   onReopenMatch,
 }) => {
   const isWon = myGameScore > oppGameScore;
+
+  // 画面表示時に勝利ファンファーレ / 敗北音を自動再生
+  useEffect(() => {
+    unlockAudioContext();
+    const timer = setTimeout(() => {
+      if (isWon) {
+        playVictoryFanfare();
+      } else {
+        playDefeatSound();
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isWon]);
+
+  const handleReplayFanfare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    unlockAudioContext();
+    if (isWon) {
+      playVictoryFanfare();
+    } else {
+      playDefeatSound();
+    }
+  };
 
   // 各ゲームごとの詳細スコアを計算
   const gameScores = React.useMemo(() => {
@@ -113,8 +138,20 @@ export const MatchResultView: React.FC<MatchResultViewProps> = ({
             )}
           </div>
 
+          {/* 効果音再生まわり */}
+          <div className="pt-1 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={handleReplayFanfare}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold backdrop-blur-sm transition-all active:scale-95 border border-white/20"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>{isWon ? '🎺 ファンファーレをもう一度聴く' : '🔊 効果音をもう一度聴く'}</span>
+            </button>
+          </div>
+
           {/* タップして戻るガイド */}
-          <div className="pt-2 text-[11px] text-white/80 font-bold animate-pulse">
+          <div className="pt-1 text-[11px] text-white/80 font-bold animate-pulse">
             👆 ここをタップしてメインメニューに戻る
           </div>
         </div>

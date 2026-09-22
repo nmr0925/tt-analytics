@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
-import { Activity, BarChart3, ListFilter, PlusCircle, Database, Award, Home } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Activity, BarChart3, ListFilter, PlusCircle, Database, Award, Home, Volume2, VolumeX } from 'lucide-react';
+import { isSoundEnabled, setSoundEnabled, playPointWonSound, unlockAudioContext } from '@/lib/sound-effects';
 
 export type TabType = 'home' | 'input' | 'analysis' | 'matches' | 'settings';
 
@@ -18,6 +19,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNewMatchClick,
   activeMatchName,
 }) => {
+  const [soundOn, setSoundOn] = useState<boolean>(true);
+
+  useEffect(() => {
+    setSoundOn(isSoundEnabled());
+  }, []);
+
+  const handleToggleSound = () => {
+    unlockAudioContext();
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    if (next) {
+      playPointWonSound();
+    }
+  };
+
   return (
     <header className="bg-white/95 backdrop-blur border-b border-slate-200 text-slate-800 sticky top-0 z-40 shadow-sm">
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
@@ -49,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </button>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs & Sound Toggle */}
           <div className="flex items-center space-x-1 sm:space-x-1.5">
             <button
               onClick={() => onTabChange('home')}
@@ -109,6 +126,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Database className="w-4 h-4" />
               <span className="hidden sm:inline">データ</span>
+            </button>
+
+            {/* サウンドON/OFF切替ボタン */}
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1 ${
+                soundOn
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+              }`}
+              title={soundOn ? '効果音: ON（タップでミュート）' : '効果音: OFF（タップでON）'}
+            >
+              {soundOn ? <Volume2 className="w-4 h-4 text-amber-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+              <span className="hidden md:inline">{soundOn ? '音ON' : '音OFF'}</span>
             </button>
 
             {/* 新規試合作成ボタン */}

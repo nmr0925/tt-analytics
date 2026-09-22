@@ -42,6 +42,12 @@ import { DataManagement } from '@/components/DataManagement';
 import { TopMenu } from '@/components/TopMenu';
 import { MatchResultView } from '@/components/MatchResultView';
 import { Swords, PlusCircle, Cloud, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  playPointWonSound,
+  playPointLostSound,
+  playGameWonSound,
+  unlockAudioContext,
+} from '@/lib/sound-effects';
 
 import { INITIAL_MATCHES, INITIAL_RALLIES } from '@/lib/mock-data';
 
@@ -156,6 +162,7 @@ export default function HomePage() {
 
   // プレー登録ハンドラ（ローカルに0ms即時保存 ＆ 自動ゲーム終了・次ゲーム移行判定）
   const handleSaveRally = (rally: Rally) => {
+    unlockAudioContext();
     saveRally(rally);
     const updated = getRallies();
     setAllRallies(updated);
@@ -189,7 +196,7 @@ export default function HomePage() {
       const gamesNeededToWin = Math.ceil(gameFormat / 2);
 
       if (updatedMyGames >= gamesNeededToWin || updatedOppGames >= gamesNeededToWin) {
-        // マッチ決着
+        // マッチ決着 (MatchResultViewマウント時にファンファーレ/敗北音が鳴ります)
         const wonMatch = updatedMyGames > updatedOppGames;
         setSyncStatusMsg(
           wonMatch
@@ -213,13 +220,25 @@ export default function HomePage() {
           }
         }
       } else {
-        // 次のゲームへ自動移行
+        // 次のゲームへ自動移行（ゲーム獲得ジングル再生）
+        if (newScoreMy > newScoreOpp) {
+          playGameWonSound();
+        } else {
+          playPointLostSound();
+        }
         const nextGameNum = currentGameNumber + 1;
         setCurrentGameNumber(nextGameNum);
         setSyncStatusMsg(
           `🔔 第${currentGameNumber}ゲーム終了（${newScoreMy}-${newScoreOpp}）！ 第${nextGameNum}ゲームを開始します`
         );
         setTimeout(() => setSyncStatusMsg(null), 5000);
+      }
+    } else {
+      // 通常の1点ごとの効果音（得点: 爽快ピンポン音 / 失点: 控えめタップ音）
+      if (rally.result === 'won') {
+        playPointWonSound();
+      } else {
+        playPointLostSound();
       }
     }
   };
