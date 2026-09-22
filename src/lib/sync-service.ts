@@ -265,3 +265,41 @@ export async function syncAllLocalToCloud(): Promise<{ success: boolean; syncedM
     return { success: false, syncedMatches: 0, syncedRallies: 0, error: err?.message || '一括同期に失敗しました' };
   }
 }
+
+// =============================================================================
+// クラウドDBの全データを削除
+// =============================================================================
+
+export async function deleteAllDataFromCloud(): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { success: true };
+  }
+
+  try {
+    // 外部キー制約に合わせて rallies を先に削除
+    const { error: rErr } = await supabase
+      .from('rallies')
+      .delete()
+      .neq('id', '___dummy_condition___');
+
+    if (rErr) {
+      console.warn('[Supabase] Delete rallies warning:', rErr);
+    }
+
+    const { error: mErr } = await supabase
+      .from('matches')
+      .delete()
+      .neq('id', '___dummy_condition___');
+
+    if (mErr) {
+      console.warn('[Supabase] Delete matches warning:', mErr);
+      return { success: false, error: mErr.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Supabase] deleteAllDataFromCloud error:', err);
+    return { success: false, error: err?.message || 'クラウドDBの削除に失敗しました' };
+  }
+}
+

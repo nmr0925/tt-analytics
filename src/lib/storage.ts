@@ -10,15 +10,15 @@ const STORAGE_KEYS = {
 // クライアントサイドかどうかの判定
 const isClient = typeof window !== 'undefined';
 
-// 初期化（LocalStorageにデータがなければモックをセット）
+// 初期化（LocalStorageにデータがなければ空配列をセット）
 export function initStorage(): void {
   if (!isClient) return;
 
-  if (!localStorage.getItem(STORAGE_KEYS.MATCHES)) {
-    localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(INITIAL_MATCHES));
+  if (localStorage.getItem(STORAGE_KEYS.MATCHES) === null) {
+    localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify([]));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.RALLIES)) {
-    localStorage.setItem(STORAGE_KEYS.RALLIES, JSON.stringify(INITIAL_RALLIES));
+  if (localStorage.getItem(STORAGE_KEYS.RALLIES) === null) {
+    localStorage.setItem(STORAGE_KEYS.RALLIES, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_MATCH_ID)) {
     const matches = getMatches();
@@ -30,13 +30,13 @@ export function initStorage(): void {
 
 // 試合一覧取得
 export function getMatches(): Match[] {
-  if (!isClient) return INITIAL_MATCHES;
+  if (!isClient) return [];
   const data = localStorage.getItem(STORAGE_KEYS.MATCHES);
-  if (!data) return INITIAL_MATCHES;
+  if (!data) return [];
   try {
     return JSON.parse(data);
   } catch {
-    return INITIAL_MATCHES;
+    return [];
   }
 }
 
@@ -184,14 +184,14 @@ export function resetToMockData(): void {
   if (!isClient) return;
   localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(INITIAL_MATCHES));
   localStorage.setItem(STORAGE_KEYS.RALLIES, JSON.stringify(INITIAL_RALLIES));
-  setActiveMatchId(INITIAL_MATCHES[0].id);
+  setActiveMatchId(INITIAL_MATCHES[0]?.id || null);
 }
 
 // 全データクリア
 export function clearAllData(): void {
   if (!isClient) return;
-  localStorage.removeItem(STORAGE_KEYS.MATCHES);
-  localStorage.removeItem(STORAGE_KEYS.RALLIES);
+  localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify([]));
+  localStorage.setItem(STORAGE_KEYS.RALLIES, JSON.stringify([]));
   localStorage.removeItem(STORAGE_KEYS.ACTIVE_MATCH_ID);
 }
 

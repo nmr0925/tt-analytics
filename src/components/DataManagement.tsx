@@ -11,7 +11,7 @@ import {
   getRallies,
 } from '@/lib/storage';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { syncAllLocalToCloud, fetchAnalyticsDataFromCloud } from '@/lib/sync-service';
+import { syncAllLocalToCloud, fetchAnalyticsDataFromCloud, deleteAllDataFromCloud } from '@/lib/sync-service';
 import { Download, Upload, RotateCcw, Trash2, Database, FileSpreadsheet, ShieldAlert, Cloud, Check, RefreshCw, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 interface DataManagementProps {
@@ -122,11 +122,23 @@ export const DataManagement: React.FC<DataManagementProps> = ({ onDataChanged })
   };
 
   // 全消去
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (confirm('すべての試合データとプレー記録を完全に削除しますか？この操作は取り消せません。')) {
-      clearAllData();
-      onDataChanged();
-      showMsg('success', 'すべてのデータを消去しました');
+      setIsSyncing(true);
+      try {
+        if (isSupabaseConfigured) {
+          await deleteAllDataFromCloud();
+        }
+        clearAllData();
+        onDataChanged();
+        showMsg('success', 'すべてのデータを消去しました');
+      } catch (e: any) {
+        clearAllData();
+        onDataChanged();
+        showMsg('error', 'ローカルデータを消去しましたが、クラウドの削除でエラーが発生しました');
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 

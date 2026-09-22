@@ -88,6 +88,8 @@ export default function HomePage() {
     const loadedActiveId = getActiveMatchId();
     setMatches(loadedMatches);
     setAllRallies(loadedRallies);
+    setAnalyticsMatches(loadedMatches);
+    setAnalyticsRallies(loadedRallies);
     setActiveMatchIdState(loadedActiveId || (loadedMatches[0]?.id ?? null));
   };
 
