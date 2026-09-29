@@ -217,6 +217,121 @@ export const BenchCoachAnalysisView: React.FC<BenchCoachAnalysisViewProps> = ({
         </div>
       </div>
 
+      {/* 2.5 展開別・大分類の母数集計 (ラリー・レシーブ・自サーブ) */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-slate-800 font-black text-sm">
+            <Layers className="w-4 h-4 text-emerald-600" />
+            <span>展開別・主要技術の得失点率一覧（母数集計）</span>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            母数 = 得点＋失点の総本数
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* 1. ラリー展開全体 */}
+          <div className="bg-purple-50/70 border border-purple-200 p-4 rounded-2xl space-y-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-sm text-purple-950 flex items-center gap-1.5">
+                <span>🔄</span> ラリー展開全体
+              </span>
+              <span className="font-mono font-black text-base text-purple-700">
+                {currentSetData.rallySummary.winRate}%
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-slate-600 font-mono text-[11px]">
+                <span>総ラリー数: <strong>{currentSetData.rallySummary.total}</strong>本</span>
+                <span className="text-purple-900 font-bold">得点 {currentSetData.rallySummary.won} / 失点 {currentSetData.rallySummary.lost}</span>
+              </div>
+              <div className="w-full bg-purple-200 h-2 rounded-full overflow-hidden flex">
+                <div
+                  style={{ width: `${currentSetData.rallySummary.winRate}%` }}
+                  className="bg-purple-600 h-full transition-all"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-purple-800 leading-snug">
+              {currentSetData.rallySummary.winRate >= 50
+                ? 'ラリー戦で競り勝てている。繋いで相手のミスを誘おう。'
+                : 'ラリーでの失点が先行。無理な強打を避けて配球を意識しよう。'}
+            </p>
+          </div>
+
+          {/* 2. レシーブ展開全体 (直接得点 / 直接失点 / 継続) */}
+          <div className="bg-teal-50/70 border border-teal-200 p-4 rounded-2xl space-y-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-sm text-teal-950 flex items-center gap-1.5">
+                <span>🛡️</span> レシーブ展開全体
+              </span>
+              <span className="font-mono text-[11px] text-teal-800 font-bold">
+                総数 {currentSetData.receiveSummary.total}本
+              </span>
+            </div>
+            <div className="space-y-1 text-[11px] font-mono">
+              <div className="flex items-center justify-between text-emerald-800">
+                <span>直接得点:</span>
+                <span className="font-bold">{currentSetData.receiveSummary.directWon}本 ({currentSetData.receiveSummary.directWinRate}%)</span>
+              </div>
+              <div className="flex items-center justify-between text-rose-800">
+                <span>直接失点(ミス):</span>
+                <span className="font-bold">{currentSetData.receiveSummary.directLost}本 ({currentSetData.receiveSummary.directLossRate}%)</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span>ラリー継続:</span>
+                <span>{currentSetData.receiveSummary.rallyContinued}本 ({currentSetData.receiveSummary.continueRate}%)</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden flex mt-1">
+                <div style={{ width: `${currentSetData.receiveSummary.directWinRate}%` }} className="bg-emerald-500 h-full" />
+                <div style={{ width: `${currentSetData.receiveSummary.continueRate}%` }} className="bg-teal-400 h-full" />
+                <div style={{ width: `${currentSetData.receiveSummary.directLossRate}%` }} className="bg-rose-500 h-full" />
+              </div>
+            </div>
+            <p className="text-[11px] text-teal-800 leading-snug">
+              {currentSetData.receiveSummary.directLossRate > 35
+                ? 'レシーブミスが多い！まずは安全に深く返球しよう。'
+                : 'レシーブから安定してラリーへ持ち込めている。'}
+            </p>
+          </div>
+
+          {/* 3. 自サーブ展開全体 */}
+          <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-2xl space-y-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-sm text-emerald-950 flex items-center gap-1.5">
+                <span>⚡</span> 自サーブ展開全体
+              </span>
+              <span className="font-mono text-[11px] text-emerald-800 font-bold">
+                総数 {currentSetData.serveSummary.total}本
+              </span>
+            </div>
+            <div className="space-y-1 text-[11px] font-mono">
+              <div className="flex items-center justify-between text-emerald-800">
+                <span>サービスエース:</span>
+                <span className="font-bold">{currentSetData.serveSummary.serviceAces}本 ({currentSetData.serveSummary.serviceAceRate}%)</span>
+              </div>
+              <div className="flex items-center justify-between text-blue-800">
+                <span>3球目攻撃得点率:</span>
+                <span className="font-bold">{currentSetData.serveSummary.thirdBallWinRate}% ({currentSetData.serveSummary.thirdBallWon}/{currentSetData.serveSummary.thirdBallAttacks}本)</span>
+              </div>
+              <div className="flex items-center justify-between text-amber-800">
+                <span>レシーブ攻め被弾:</span>
+                <span className="font-bold">{currentSetData.serveSummary.oppReceiveAttacks}本 ({currentSetData.serveSummary.oppReceiveAttackRate}%)</span>
+              </div>
+              <div className="flex items-center justify-between text-rose-800">
+                <span>サーブミス:</span>
+                <span className="font-bold">{currentSetData.serveSummary.serveMisses}本 ({currentSetData.serveSummary.serveMissRate}%)</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-emerald-800 leading-snug">
+              {currentSetData.serveSummary.oppReceiveAttackRate > 25
+                ? 'サーブが甘くレシーブから攻められている。コース・長さを意識！'
+                : '自サーブから優位にゲームを組み立てられている。'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 3. 序盤 vs 直前セットの変化・相手の対応アラート (複数セットある場合) */}
       {analysis.trendChanges.length > 0 && (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-5 shadow-sm space-y-3">

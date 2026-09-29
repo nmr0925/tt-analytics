@@ -145,7 +145,7 @@ export const INITIATIVE_LABELS: Record<InitiativeType, string> = {
 // ベンチコーチ入力 得点詳細タイプ
 export type BenchWonReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'floated_opp_error';
 export type BenchWonThirdBallType = 'vs_push' | 'vs_topspin' | 'chance_from_serve';
-export type BenchWonRallyType = 'on_table' | 'out_attack' | 'out_defend' | 'out_rally' | 'opp_chance_miss';
+export type BenchWonRallyType = 'first_attack' | 'on_table' | 'out_attack' | 'out_defend' | 'out_rally' | 'opp_chance_miss';
 
 // ベンチコーチ入力 失点詳細タイプ
 export type BenchLostSelfMissType = 'serve_miss' | 'receive_miss' | 'third_ball_miss';
@@ -154,7 +154,7 @@ export type BenchLostThirdBallSituation = 'vs_push' | 'vs_topspin' | 'chance_fro
 export type BenchLostReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive' | 'smash';
 export type BenchLostPriorReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive';
 export type BenchLostReceiveQuality = 'good' | 'floated_chance';
-export type BenchLostRallyType = 'on_table' | 'out_attack_lost' | 'out_defend_lost' | 'out_rally_lost' | 'self_chance_miss';
+export type BenchLostRallyType = 'first_attacked_lost' | 'on_table' | 'out_attack_lost' | 'out_defend_lost' | 'out_rally_lost' | 'self_chance_miss';
 
 // ベンチコーチ 簡易コース
 export type BenchCourse = 'fore_short' | 'middle_short' | 'back_short' | 'fore_long' | 'middle_long' | 'back_long' | 'unknown';
@@ -196,7 +196,7 @@ export interface Rally {
   benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃 (対ツッツキ)", "３球目攻撃ミス (回り込み / 対ツッツキ / フォア前)" 等)
   benchCourse?: BenchCourse;
   benchWonCategory?: 'service_ace' | 'receive' | 'third_ball' | 'rally' | 'unknown';
-  benchLostCategory?: 'self_miss' | 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'rally' | 'serve_miss' | 'unknown';
+  benchLostCategory?: 'self_miss' | 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'opp_receive_attack' | 'rally' | 'serve_miss' | 'unknown';
   benchLostSelfMissType?: BenchLostSelfMissType;
   benchLostThirdBallPosition?: BenchLostThirdBallPosition;
   benchLostThirdBallSituation?: BenchLostThirdBallSituation;
@@ -354,6 +354,7 @@ export const BENCH_WON_THIRDBALL_LABELS: Record<BenchWonThirdBallType, string> =
 };
 
 export const BENCH_WON_RALLY_LABELS: Record<BenchWonRallyType, string> = {
+  first_attack: '先に攻めた',
   on_table: '台上',
   out_attack: '打ち勝ち',
   out_defend: '守り勝ち',
@@ -395,6 +396,7 @@ export const BENCH_LOST_THIRDBALL_SITUATION_LABELS: Record<BenchLostThirdBallSit
 };
 
 export const BENCH_LOST_RALLY_LABELS: Record<BenchLostRallyType, string> = {
+  first_attacked_lost: '先に攻められた',
   on_table: '台上',
   out_attack_lost: '打ち負け',
   out_defend_lost: '守り負け',

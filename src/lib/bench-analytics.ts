@@ -20,6 +20,7 @@ import {
   BENCH_LOST_RECEIVE_LABELS,
   BENCH_LOST_RECEIVE_QUALITY_LABELS,
   BENCH_LOST_RALLY_LABELS,
+  BenchCourse,
 } from '@/types/table-tennis';
 
 export interface ActionImpactItem {
@@ -83,6 +84,42 @@ export interface ClutchServeRecommendation {
   recommendationReason: string;
 }
 
+// レシーブ総合分析 (直接得点、直接失点、ラリー継続)
+export interface ReceivePhaseSummary {
+  total: number; // レシーブ総数 (相手サーブ時の全プレー)
+  directWon: number; // 直接得点
+  directLost: number; // 直接失点 (レシーブミス)
+  rallyContinued: number; // ラリー継続 (相手3球目被弾含む)
+  directWinRate: number; // % (directWon / total)
+  directLossRate: number; // % (directLost / total)
+  continueRate: number; // % (rallyContinued / total)
+}
+
+// 自サーブ総合分析
+export interface ServePhaseSummary {
+  total: number; // 自サーブ総数
+  serviceAces: number; // サービスエース
+  serveMisses: number; // サーブミス
+  oppReceiveAttacks: number; // 相手にレシーブから攻められた
+  thirdBallAttacks: number; // 3球目攻撃総数 (得点 + ミス)
+  thirdBallWon: number; // 3球目攻撃得点
+  thirdBallLost: number; // 3球目攻撃ミス
+  rallyContinued: number; // その他ラリー継続
+  serviceAceRate: number; // %
+  serveMissRate: number; // %
+  oppReceiveAttackRate: number; // %
+  thirdBallWinRate: number; // % (3球目得点 / 3球目総数)
+}
+
+// ラリー総合分析
+export interface RallyPhaseSummary {
+  total: number; // ラリー総数 (得点 + 失点)
+  won: number; // ラリー得点
+  lost: number; // ラリー失点
+  winRate: number; // %
+  lossRate: number; // %
+}
+
 export interface SetBenchAnalysis {
   setNumber: number;
   totalPoints: number;
@@ -90,10 +127,15 @@ export interface SetBenchAnalysis {
   lostPoints: number;
   winRate: number;
 
-  // 1. 得点率が高い行動 (効いている・続けるべき)
+  // 大分類・展開別の母数集計
+  receiveSummary: ReceivePhaseSummary;
+  serveSummary: ServePhaseSummary;
+  rallySummary: RallyPhaseSummary;
+
+  // 1. 得点率が高い行動 (効いている・続けるべき) - 母数(won+lost)から算出
   topWinningActions: ActionImpactItem[];
 
-  // 2. 失点率が高い行動 (やめる・意識して待つ・対処すべき)
+  // 2. 失点率が高い行動 (やめる・意識して待つ・対処すべき) - 母数(won+lost)から算出
   topLosingActions: ActionImpactItem[];
 
   // 3. ミスが多い技術の失敗率
@@ -180,7 +222,7 @@ export function parseRallyToBenchData(r: Rally): {
       const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : 'コース不明';
       const isAttacking = r.benchWonReceiveTech === 'flick' || r.benchWonReceiveTech === 'floated_opp_error';
       return {
-        actionLabel: `レシーブ (${techName} → ${cName})`,
+        actionLabel: `レシーブ得点 (${techName} → ${cName})`,
         actionCategory: 'receive',
         initiative: isAttacking ? 'self_attack' : 'neutral',
         wonDetailLabel: `レシーブ得点 (${techName} → ${cName})`,
@@ -205,22 +247,36 @@ export function parseRallyToBenchData(r: Rally): {
 
     if (r.benchWonCategory === 'rally') {
       const rallyName = r.benchWonRallyType ? BENCH_WON_RALLY_LABELS[r.benchWonRallyType] : 'ラリー';
-      const isSelfAtk = r.benchWonRallyType === 'out_attack';
+      const isSelfAtk = r.benchWonRallyType === 'out_attack' || r.benchWonRallyType === 'first_attack';
       const isOppAtk = r.benchWonRallyType === 'out_defend';
       return {
-        actionLabel: `ラリー (${rallyName})`,
+        actionLabel: `ラリー得点 (${rallyName})`,
         actionCategory: 'rally',
         initiative: isSelfAtk ? 'self_attack' : isOppAtk ? 'opp_attack' : 'neutral',
         wonDetailLabel: `ラリー得点 (${rallyName})`,
         lostDetailLabel: 'ラリー失点',
         skillKey: `rally_${r.benchWonRallyType || 'general'}`,
-        skillName: `${rallyName}ラリー`,
+        skillName: `${rallyName}`,
       };
     }
   }
 
   // 失点時の各カテゴリ
   if (!isWon && r.benchLostCategory) {
+    // 相手にレシーブから攻められた
+    if (r.benchLostCategory === 'opp_receive_attack') {
+      const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : '自サーブ';
+      return {
+        actionLabel: `相手にレシーブから攻められた (${cName}後)`,
+        actionCategory: 'serve',
+        initiative: 'opp_attack',
+        wonDetailLabel: 'サーブからの得点',
+        lostDetailLabel: `レシーブから攻められた (${cName}後)`,
+        skillKey: `serve_rec_attack_${r.benchCourse || 'other'}`,
+        skillName: `${cName}のコントロール`,
+      };
+    }
+
     // 自分のミス (サーブミス / レシーブミス / ３球目攻撃ミス)
     if (r.benchLostCategory === 'self_miss') {
       if (r.benchLostSelfMissType === 'serve_miss') {
@@ -314,7 +370,7 @@ export function parseRallyToBenchData(r: Rally): {
     if (r.benchLostCategory === 'rally') {
       const rallyName = r.benchLostRallyType ? BENCH_LOST_RALLY_LABELS[r.benchLostRallyType] : 'ラリー';
       const isSelfAtk = r.benchLostRallyType === 'out_attack_lost' || r.benchLostRallyType === 'self_chance_miss';
-      const isOppAtk = r.benchLostRallyType === 'out_defend_lost';
+      const isOppAtk = r.benchLostRallyType === 'out_defend_lost' || r.benchLostRallyType === 'first_attacked_lost';
       return {
         actionLabel: `ラリー失点 (${rallyName})`,
         actionCategory: 'rally',
@@ -497,7 +553,7 @@ export function parseRallyToBenchData(r: Rally): {
 }
 
 // =============================================================================
-// 指定されたラリー配列からセット/通算のベンチ分析を算出する関数
+// 指定されたラリー配列からセット/通算のベンチ分析を算出する関数 (母数集計)
 // =============================================================================
 
 function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalysis {
@@ -505,50 +561,380 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
   let wonPoints = 0;
   let lostPoints = 0;
 
-  // アクションごとの集計
-  const actionMap = new Map<string, {
-    name: string;
-    category: 'serve' | 'receive' | 'third_ball' | 'rally' | 'unforced' | 'other';
-    total: number;
-    won: number;
-    lost: number;
-  }>();
+  // 1. 大分類・展開別の集計バッファ
+  let recTotal = 0;
+  let recDirectWon = 0;
+  let recDirectLost = 0;
 
-  // スキル失敗率の集計
+  let serveTotal = 0;
+  let serveAces = 0;
+  let serveMisses = 0;
+  let oppRecAttacks = 0;
+  let thirdBallWonCount = 0;
+  let thirdBallLostCount = 0;
+
+  let rallyWonCount = 0;
+  let rallyLostCount = 0;
+
+  // 2. 対をなす戦術行動マップ (得点と失点の合計を母数として算出)
+  const tacticalMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      category: 'serve' | 'receive' | 'third_ball' | 'rally' | 'unforced' | 'other';
+      won: number;
+      lost: number;
+      winAdvice: string;
+      lossAdvice: string;
+    }
+  >();
+
+  const addTactical = (
+    id: string,
+    name: string,
+    category: 'serve' | 'receive' | 'third_ball' | 'rally' | 'unforced' | 'other',
+    isWon: boolean,
+    winAdvice: string,
+    lossAdvice: string
+  ) => {
+    const cur = tacticalMap.get(id) || {
+      id,
+      name,
+      category,
+      won: 0,
+      lost: 0,
+      winAdvice,
+      lossAdvice,
+    };
+    if (isWon) cur.won++;
+    else cur.lost++;
+    tacticalMap.set(id, cur);
+  };
+
+  // 3. スキル失敗率の集計
   const skillAttempts = new Map<string, { name: string; total: number; miss: number }>();
 
-  // 先手攻撃 / 先手被攻撃
+  // 4. 先手攻撃 / 先手被攻撃
   let selfInitTotal = 0;
   let selfInitWon = 0;
   let oppInitTotal = 0;
   let oppInitWon = 0;
 
-  // 得点内訳マップ
+  // 5. 内訳マップ
   const wonMap = new Map<string, { count: number; color: string }>();
-  // 失点内訳マップ
   const lostMap = new Map<string, { count: number; color: string }>();
 
   for (const r of rallies) {
     const isWon = r.result === 'won';
+    const isSelfServe = r.server === 'self';
+
     if (isWon) wonPoints++;
     else lostPoints++;
 
     const parsed = parseRallyToBenchData(r);
 
-    // アクション集計
-    const act = actionMap.get(parsed.actionLabel) || {
-      name: parsed.actionLabel,
-      category: parsed.actionCategory,
-      total: 0,
-      won: 0,
-      lost: 0,
-    };
-    act.total++;
-    if (isWon) act.won++;
-    else act.lost++;
-    actionMap.set(parsed.actionLabel, act);
+    // -------------------------------------------------------------------------
+    // A. 展開別 (Receive, Serve, Rally) の母数集計
+    // -------------------------------------------------------------------------
+    if (!isSelfServe || r.benchWonCategory === 'receive' || r.benchLostCategory === 'receive_miss' || r.benchLostCategory === 'third_ball_lost') {
+      recTotal++;
+      if (r.benchWonCategory === 'receive' || (r.actionCategory === 'receive' && isWon)) {
+        recDirectWon++;
+      } else if (
+        r.benchLostCategory === 'receive_miss' ||
+        (r.benchLostCategory === 'self_miss' && r.benchLostSelfMissType === 'receive_miss') ||
+        (r.actionCategory === 'receive' && !isWon)
+      ) {
+        recDirectLost++;
+      }
+    }
 
-    // スキル失敗集計
+    if (isSelfServe || r.benchWonCategory === 'service_ace' || r.benchLostCategory === 'opp_receive_attack' || (r.benchLostCategory === 'self_miss' && r.benchLostSelfMissType === 'serve_miss')) {
+      serveTotal++;
+      if (r.benchWonCategory === 'service_ace' || (r.actionCategory === 'serve' && isWon)) {
+        serveAces++;
+      } else if (
+        r.benchLostCategory === 'serve_miss' ||
+        (r.benchLostCategory === 'self_miss' && r.benchLostSelfMissType === 'serve_miss') ||
+        r.actionCategory === 'serve_miss'
+      ) {
+        serveMisses++;
+      } else if (r.benchLostCategory === 'opp_receive_attack') {
+        oppRecAttacks++;
+      }
+
+      if (r.benchWonCategory === 'third_ball' || (r.actionCategory === 'third_ball' && isWon)) {
+        thirdBallWonCount++;
+      } else if (
+        (r.benchLostCategory === 'self_miss' && r.benchLostSelfMissType === 'third_ball_miss') ||
+        (r.actionCategory === 'third_ball' && !isWon)
+      ) {
+        thirdBallLostCount++;
+      }
+    }
+
+    if (r.benchWonCategory === 'rally' || r.actionCategory === 'rally') {
+      if (isWon) rallyWonCount++;
+    }
+    if (r.benchLostCategory === 'rally' || (!isWon && r.actionCategory === 'rally')) {
+      rallyLostCount++;
+    }
+
+    // -------------------------------------------------------------------------
+    // B. 対をなす戦術行動 (Tactical Action Pairs) の集計
+    // -------------------------------------------------------------------------
+
+    // 1. ラリー戦術ペア
+    if (r.benchWonCategory === 'rally' || r.benchLostCategory === 'rally' || r.actionCategory === 'rally') {
+      // ラリー全体
+      addTactical(
+        'rally_phase_all',
+        'ラリー戦全体',
+        'rally',
+        isWon,
+        'ラリー戦で優勢に得点できている！ラリーに持ち込もう',
+        'ラリー戦での失点が多い。コース配球と繋ぎを意識しよう'
+      );
+
+      // 強打・打ち合い
+      if (r.benchWonRallyType === 'out_attack' || r.benchLostRallyType === 'out_attack_lost') {
+        addTactical(
+          'rally_out_attack',
+          'ラリー（強打・打ち合い）',
+          'rally',
+          isWon,
+          '強打の打ち合いで打ち勝てている！自信を持って振り抜こう',
+          '強打の打ち合いで打ち負けている。打点を落として繋ぐかコースを突こう'
+        );
+      }
+
+      // 先手攻撃争い
+      if (r.benchWonRallyType === 'first_attack' || r.benchLostRallyType === 'first_attacked_lost') {
+        addTactical(
+          'rally_first_attack',
+          'ラリー（先手攻撃争い）',
+          'rally',
+          isWon,
+          '先に攻めて高確率で得点できている！積極的に先手を取ろう',
+          '先に攻められて失点している。台上で短く止めるか厳しく送ろう'
+        );
+      }
+
+      // ブロック・守備
+      if (r.benchWonRallyType === 'out_defend' || r.benchLostRallyType === 'out_defend_lost') {
+        addTactical(
+          'rally_out_defend',
+          'ラリー（ブロック・守備）',
+          'rally',
+          isWon,
+          '相手の攻撃をブロック・守備から得点できている！',
+          '相手の攻撃を守りきれず失点している。コースを突いてブロックしよう'
+        );
+      }
+
+      // 入れあい・繋ぎ
+      if (r.benchWonRallyType === 'out_rally' || r.benchLostRallyType === 'out_rally_lost') {
+        addTactical(
+          'rally_out_rally',
+          'ラリー（入れあい・繋ぎ）',
+          'rally',
+          isWon,
+          'ラリーの粘り・入れあいで優位に立っている！',
+          'ラリーの入れあいでミスが出ている。焦らず台に入れよう'
+        );
+      }
+
+      // 台上ラリー
+      if (r.benchWonRallyType === 'on_table' || r.benchLostRallyType === 'on_table') {
+        addTactical(
+          'rally_on_table',
+          '台上ラリー戦',
+          'rally',
+          isWon,
+          '台上戦で主導権を握れている！',
+          '台上戦での失点に注意。無理せず深く送ろう'
+        );
+      }
+
+      // チャンスボール
+      if (r.benchWonRallyType === 'opp_chance_miss' || r.benchLostRallyType === 'self_chance_miss') {
+        addTactical(
+          'rally_chance_ball',
+          'チャンスボール処理',
+          'rally',
+          isWon,
+          'チャンスボールで確実に得点できている！',
+          'チャンスボールでのミスが出ている！確実にコースへ決めよう'
+        );
+      }
+    }
+
+    // 2. ３球目攻撃ペア
+    if (
+      r.benchWonCategory === 'third_ball' ||
+      (r.benchLostCategory === 'self_miss' && r.benchLostSelfMissType === 'third_ball_miss') ||
+      r.actionCategory === 'third_ball'
+    ) {
+      addTactical(
+        'third_ball_all',
+        '３球目攻撃全体',
+        'third_ball',
+        isWon,
+        '３球目攻撃が効果的！積極的に自発先手を仕掛けよう',
+        '３球目攻撃のミスが出ている。無理な強打を控え回転をかけよう'
+      );
+
+      // 対ツッツキ
+      if (r.benchWonThirdBallType === 'vs_push' || r.benchLostThirdBallSituation === 'vs_push') {
+        addTactical(
+          '3rd_vs_push',
+          '３球目攻撃（対ツッツキ）',
+          'third_ball',
+          isWon,
+          '下回転に対する3球目ドライブが抜群に効いている！',
+          '対ツッツキの3球目ドライブでミスが出ている。回転をかけて安全に攻めよう'
+        );
+      }
+
+      // 対上回転
+      if (r.benchWonThirdBallType === 'vs_topspin' || r.benchLostThirdBallSituation === 'vs_topspin') {
+        addTactical(
+          '3rd_vs_topspin',
+          '３球目攻撃（対上回転）',
+          'third_ball',
+          isWon,
+          '上回転レシーブへのカウンター・叩きが冴えている！',
+          '上回転レシーブに振り遅れている。打点を前で捉えよう'
+        );
+      }
+
+      // サーブでチャンス
+      if (r.benchWonThirdBallType === 'chance_from_serve' || r.benchLostThirdBallSituation === 'chance_from_serve') {
+        addTactical(
+          '3rd_chance',
+          '３球目攻撃（浮き球チャンス）',
+          'third_ball',
+          isWon,
+          'サーブで崩してのスマッシュ・強打が確実に決まっている！',
+          '浮いたチャンスボールでのミスに注意。コースを狙おう'
+        );
+      }
+    }
+
+    // 3. レシーブ技術ペア
+    if (r.benchWonReceiveTech || r.benchLostReceiveTech || r.benchLostPriorReceiveTech || (!isSelfServe && r.actionCategory === 'receive')) {
+      // ツッツキ
+      const isPushWon = r.benchWonReceiveTech === 'push';
+      const isPushLost =
+        (r.benchLostCategory === 'self_miss' && r.benchLostReceiveTech === 'push') ||
+        r.benchLostPriorReceiveTech === 'push';
+      if (isPushWon || isPushLost) {
+        addTactical(
+          'rec_push',
+          'レシーブ（ツッツキ）',
+          'receive',
+          isWon,
+          'ツッツキレシーブで相手を崩せている！深く送ろう',
+          'ツッツキレシーブが甘くなって打たれている・ミスが出ている'
+        );
+      }
+
+      // ストップ
+      const isStopWon = r.benchWonReceiveTech === 'stop';
+      const isStopLost =
+        (r.benchLostCategory === 'self_miss' && r.benchLostReceiveTech === 'stop') ||
+        r.benchLostPriorReceiveTech === 'stop';
+      if (isStopWon || isStopLost) {
+        addTactical(
+          'rec_stop',
+          'レシーブ（ストップ）',
+          'receive',
+          isWon,
+          'ストップで相手の先手を封じられている！',
+          'ストップが浮いて打たれている・ネットミスに注意'
+        );
+      }
+
+      // フリック
+      const isFlickWon = r.benchWonReceiveTech === 'flick';
+      const isFlickLost =
+        (r.benchLostCategory === 'self_miss' && r.benchLostReceiveTech === 'flick') ||
+        r.benchLostPriorReceiveTech === 'flick';
+      if (isFlickWon || isFlickLost) {
+        addTactical(
+          'rec_flick',
+          'レシーブ（フリック攻撃）',
+          'receive',
+          isWon,
+          'フリックレシーブから主導権を握れている！迷わず振ろう',
+          'フリックレシーブでのミス・被弾が多い。コースを突こう'
+        );
+      }
+
+      // 流し
+      const isSinkWon = r.benchWonReceiveTech === 'sink';
+      const isSinkLost =
+        (r.benchLostCategory === 'self_miss' && r.benchLostReceiveTech === 'sink') ||
+        r.benchLostPriorReceiveTech === 'sink';
+      if (isSinkWon || isSinkLost) {
+        addTactical(
+          'rec_sink',
+          'レシーブ（流し）',
+          'receive',
+          isWon,
+          '流しレシーブで相手の逆を突けている！',
+          '流しレシーブが読まれている。配球を散らそう'
+        );
+      }
+
+      // ドライブ / 強打 / 軽打
+      const isDvrWon = r.benchWonReceiveTech === 'floated_opp_error';
+      const isDvrLost =
+        (r.benchLostCategory === 'self_miss' && (r.benchLostReceiveTech === 'drive' || r.benchLostReceiveTech === 'smash' || r.benchLostReceiveTech === 'light_hit')) ||
+        r.benchLostPriorReceiveTech === 'drive' ||
+        r.benchLostPriorReceiveTech === 'light_hit';
+      if (isDvrWon || isDvrLost) {
+        addTactical(
+          'rec_attack',
+          'レシーブ（強打・ドライブ）',
+          'receive',
+          isWon,
+          'レシーブからの強打が決まっている！',
+          'レシーブ強打でのミスが多い。まずは台に入れよう'
+        );
+      }
+    }
+
+    // 4. 自サーブのコース別得失点
+    if (isSelfServe && r.benchCourse && r.benchCourse !== 'unknown') {
+      const cName = BENCH_COURSE_LABELS[r.benchCourse];
+      addTactical(
+        `serve_course_${r.benchCourse}`,
+        `自サーブ（${cName}）`,
+        'serve',
+        isWon,
+        `${cName}サーブからの展開で高得点率！勝負所で使おう`,
+        `${cName}サーブが狙われている・レシーブから攻められている`
+      );
+    }
+
+    // 5. 相手サーブのコース別対応得失点
+    if (!isSelfServe && r.benchCourse && r.benchCourse !== 'unknown') {
+      const cName = BENCH_COURSE_LABELS[r.benchCourse];
+      addTactical(
+        `opp_serve_course_${r.benchCourse}`,
+        `相手${cName}サーブへの対応`,
+        'receive',
+        isWon,
+        `相手の${cName}サーブを攻略できている！`,
+        `相手の${cName}サーブに苦戦している。待ちを意識しよう`
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // C. スキル失敗集計
+    // -------------------------------------------------------------------------
     if (parsed.skillKey && parsed.skillName) {
       const sk = skillAttempts.get(parsed.skillKey) || { name: parsed.skillName, total: 0, miss: 0 };
       sk.total++;
@@ -556,7 +942,9 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
       skillAttempts.set(parsed.skillKey, sk);
     }
 
-    // 先手集計
+    // -------------------------------------------------------------------------
+    // D. 先手集計
+    // -------------------------------------------------------------------------
     if (parsed.initiative === 'self_attack') {
       selfInitTotal++;
       if (isWon) selfInitWon++;
@@ -565,77 +953,129 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
       if (isWon) oppInitWon++;
     }
 
-    // 得点内訳集計
+    // -------------------------------------------------------------------------
+    // E. 内訳集計
+    // -------------------------------------------------------------------------
     if (isWon) {
       const label = parsed.wonDetailLabel;
-      const color = parsed.actionCategory === 'serve' ? '#10b981' : parsed.actionCategory === 'third_ball' ? '#3b82f6' : parsed.actionCategory === 'receive' ? '#06b6d4' : '#8b5cf6';
+      const color =
+        parsed.actionCategory === 'serve'
+          ? '#10b981'
+          : parsed.actionCategory === 'third_ball'
+          ? '#3b82f6'
+          : parsed.actionCategory === 'receive'
+          ? '#06b6d4'
+          : '#8b5cf6';
       const cur = wonMap.get(label) || { count: 0, color };
       cur.count++;
       wonMap.set(label, cur);
     } else {
-      // 失点内訳集計
       const label = parsed.lostDetailLabel;
-      const color = parsed.actionCategory === 'serve' ? '#ef4444' : parsed.actionCategory === 'third_ball' ? '#f43f5e' : parsed.actionCategory === 'receive' ? '#f59e0b' : '#ec4899';
+      const color =
+        parsed.actionCategory === 'serve'
+          ? '#ef4444'
+          : parsed.actionCategory === 'third_ball'
+          ? '#f43f5e'
+          : parsed.actionCategory === 'receive'
+          ? '#f59e0b'
+          : '#ec4899';
       const cur = lostMap.get(label) || { count: 0, color };
       cur.count++;
       lostMap.set(label, cur);
     }
   }
 
-  // 1. 得点率が高い行動 (効いている・続けるべき)
-  const topWinningActions: ActionImpactItem[] = Array.from(actionMap.values())
-    .filter((a) => a.total >= 1 && (a.won / a.total) >= 0.5)
-    .map((a) => {
-      const winRate = Math.round((a.won / a.total) * 100);
+  // ===========================================================================
+  // 大分類・展開別のサマリー生成
+  // ===========================================================================
+  const receiveSummary: ReceivePhaseSummary = {
+    total: recTotal,
+    directWon: recDirectWon,
+    directLost: recDirectLost,
+    rallyContinued: Math.max(0, recTotal - recDirectWon - recDirectLost),
+    directWinRate: recTotal > 0 ? Math.round((recDirectWon / recTotal) * 100) : 0,
+    directLossRate: recTotal > 0 ? Math.round((recDirectLost / recTotal) * 100) : 0,
+    continueRate: recTotal > 0 ? Math.round((Math.max(0, recTotal - recDirectWon - recDirectLost) / recTotal) * 100) : 0,
+  };
+
+  const thirdBallAttacksTotal = thirdBallWonCount + thirdBallLostCount;
+  const serveSummary: ServePhaseSummary = {
+    total: serveTotal,
+    serviceAces: serveAces,
+    serveMisses,
+    oppReceiveAttacks: oppRecAttacks,
+    thirdBallAttacks: thirdBallAttacksTotal,
+    thirdBallWon: thirdBallWonCount,
+    thirdBallLost: thirdBallLostCount,
+    rallyContinued: Math.max(0, serveTotal - serveAces - serveMisses - oppRecAttacks - thirdBallAttacksTotal),
+    serviceAceRate: serveTotal > 0 ? Math.round((serveAces / serveTotal) * 100) : 0,
+    serveMissRate: serveTotal > 0 ? Math.round((serveMisses / serveTotal) * 100) : 0,
+    oppReceiveAttackRate: serveTotal > 0 ? Math.round((oppRecAttacks / serveTotal) * 100) : 0,
+    thirdBallWinRate: thirdBallAttacksTotal > 0 ? Math.round((thirdBallWonCount / thirdBallAttacksTotal) * 100) : 0,
+  };
+
+  const rallyTotal = rallyWonCount + rallyLostCount;
+  const rallySummary: RallyPhaseSummary = {
+    total: rallyTotal,
+    won: rallyWonCount,
+    lost: rallyLostCount,
+    winRate: rallyTotal > 0 ? Math.round((rallyWonCount / rallyTotal) * 100) : 0,
+    lossRate: rallyTotal > 0 ? Math.round((rallyLostCount / rallyTotal) * 100) : 0,
+  };
+
+  // ===========================================================================
+  // 1. 得点率が高い行動 (母数 = 得点 + 失点)
+  // ===========================================================================
+  const topWinningActions: ActionImpactItem[] = Array.from(tacticalMap.values())
+    .map((item) => {
+      const total = item.won + item.lost;
+      const winRate = total > 0 ? Math.round((item.won / total) * 100) : 0;
       const lossRate = 100 - winRate;
       return {
-        id: a.name,
-        name: a.name,
-        detail: `${a.total}本中 ${a.won}点獲得 (${winRate}%)`,
-        category: a.category,
-        total: a.total,
-        won: a.won,
-        lost: a.lost,
+        id: item.id,
+        name: item.name,
+        detail: `${total}本中 ${item.won}点獲得 (${winRate}%) [得点 ${item.won} / 失点 ${item.lost}]`,
+        category: item.category,
+        total,
+        won: item.won,
+        lost: item.lost,
         winRate,
         lossRate,
         adviceType: 'keep' as const,
-        adviceMessage: winRate >= 75 ? '非常に効果的！最優先で続けるべき' : '有効な戦術。迷わず使っていこう',
+        adviceMessage: winRate >= 70 ? '非常に効果的！最優先で続けるべき' : item.winAdvice,
       };
     })
-    .sort((a, b) => b.winRate !== a.winRate ? b.winRate - a.winRate : b.total - a.total);
+    .filter((a) => a.total >= 1 && a.winRate >= 50)
+    .sort((a, b) => (b.winRate !== a.winRate ? b.winRate - a.winRate : b.total - a.total));
 
-  // 2. 失点率が高い行動 (やめる・意識して待つ・対処すべき)
-  const topLosingActions: ActionImpactItem[] = Array.from(actionMap.values())
-    .filter((a) => a.total >= 1 && (a.lost / a.total) >= 0.5)
-    .map((a) => {
-      const winRate = Math.round((a.won / a.total) * 100);
-      const lossRate = Math.round((a.lost / a.total) * 100);
-      let adviceMsg = '失点パターン。配球を変えるか、無理な強打を避ける';
-      if (a.name.includes('レシーブ')) {
-        adviceMsg = '相手サーブのコース・長さを待って確実に返球すること';
-      } else if (a.name.includes('３球目') || a.name.includes('3球目') || a.name.includes('無理')) {
-        adviceMsg = '強打で一発を狙いすぎず、回転をかけて安全に攻める';
-      } else if (a.name.includes('サーブミス')) {
-        adviceMsg = 'まずは台に入れることを徹底して失点を防ぐ';
-      }
-
+  // ===========================================================================
+  // 2. 失点率が高い行動 (母数 = 得点 + 失点)
+  // ===========================================================================
+  const topLosingActions: ActionImpactItem[] = Array.from(tacticalMap.values())
+    .map((item) => {
+      const total = item.won + item.lost;
+      const winRate = total > 0 ? Math.round((item.won / total) * 100) : 0;
+      const lossRate = total > 0 ? Math.round((item.lost / total) * 100) : 0;
       return {
-        id: a.name,
-        name: a.name,
-        detail: `${a.total}本中 ${a.lost}失点 (${lossRate}%)`,
-        category: a.category,
-        total: a.total,
-        won: a.won,
-        lost: a.lost,
+        id: item.id,
+        name: item.name,
+        detail: `${total}本中 ${item.lost}失点 (${lossRate}%) [失点 ${item.lost} / 得点 ${item.won}]`,
+        category: item.category,
+        total,
+        won: item.won,
+        lost: item.lost,
         winRate,
         lossRate,
         adviceType: 'stop' as const,
-        adviceMessage: adviceMsg,
+        adviceMessage: item.lossAdvice,
       };
     })
-    .sort((a, b) => b.lossRate !== a.lossRate ? b.lossRate - a.lossRate : b.total - a.total);
+    .filter((a) => a.total >= 1 && a.lossRate >= 50)
+    .sort((a, b) => (b.lossRate !== a.lossRate ? b.lossRate - a.lossRate : b.total - a.total));
 
-  // 3. 自分のミスが多い技術の失敗率
+  // ===========================================================================
+  // 3. ミスが多い技術の失敗率
+  // ===========================================================================
   const topSkillFailures: SkillFailureItem[] = Array.from(skillAttempts.values())
     .filter((s) => s.miss >= 1)
     .map((s) => {
@@ -653,9 +1093,11 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
         adviceMessage: advice,
       };
     })
-    .sort((a, b) => b.failureRate !== a.failureRate ? b.failureRate - a.failureRate : b.missCount - a.missCount);
+    .sort((a, b) => (b.failureRate !== a.failureRate ? b.failureRate - a.failureRate : b.missCount - a.missCount));
 
+  // ===========================================================================
   // 4. 先手を取りに行った際の得点率
+  // ===========================================================================
   const selfInitWinRate = selfInitTotal > 0 ? Math.round((selfInitWon / selfInitTotal) * 100) : 0;
   let selfEval = '自発攻撃機会なし';
   let selfAdvice = '攻められるボールは積極的に先手を取ろう';
@@ -681,7 +1123,9 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
     advice: selfAdvice,
   };
 
+  // ===========================================================================
   // 5. 先手を取られた際の得点率
+  // ===========================================================================
   const oppInitWinRate = oppInitTotal > 0 ? Math.round((oppInitWon / oppInitTotal) * 100) : 0;
   let oppEval = '相手の先手機会なし';
   let oppAdvice = '相手に攻めさせない配球をキープしよう';
@@ -704,7 +1148,9 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
     advice: oppAdvice,
   };
 
+  // ===========================================================================
   // 6. 全得点の内訳
+  // ===========================================================================
   const wonBreakdown: PointBreakdownItem[] = Array.from(wonMap.entries())
     .map(([label, val]) => ({
       id: label,
@@ -715,7 +1161,9 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
     }))
     .sort((a, b) => b.count - a.count);
 
+  // ===========================================================================
   // 7. 全失点の内訳
+  // ===========================================================================
   const lostBreakdown: PointBreakdownItem[] = Array.from(lostMap.entries())
     .map(([label, val]) => ({
       id: label,
@@ -726,13 +1174,22 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
     }))
     .sort((a, b) => b.count - a.count);
 
+  // ===========================================================================
   // 1分間アドバイス ハイライト作成
-  const bestWinAct = topWinningActions[0]?.name || 'サーブ・レシーブを落ち着いて入れる';
-  const worstLossAct = topLosingActions[0]?.name || 'イージーミスを減らす';
+  // ===========================================================================
+  const bestWinAct = topWinningActions[0];
+  const worstLossAct = topLosingActions[0];
   const quickAdvice = {
-    keep: topWinningActions.length > 0 ? `【継続】${bestWinAct} が非常に効いている！` : '【継続】丁寧なラリーで相手のミスを誘おう',
-    stop: topLosingActions.length > 0 ? `【注意】${worstLossAct} での失点を防ぐこと！` : '【注意】甘い返球を避けて深く送ろう',
-    clutch: selfInitWinRate >= 60 ? 'チャンスボールは自信を持って先手攻撃！' : '無理に打ち込まず、コースを突いてチャンスを待とう',
+    keep: bestWinAct
+      ? `【継続】${bestWinAct.name} が効いている！（得点率 ${bestWinAct.winRate}%: ${bestWinAct.won}/${bestWinAct.total}本）`
+      : '【継続】丁寧なラリーで相手のミスを誘おう',
+    stop: worstLossAct
+      ? `【注意】${worstLossAct.name} での失点を防ぐ！（失点率 ${worstLossAct.lossRate}%: ${worstLossAct.lost}/${worstLossAct.total}本）`
+      : '【注意】甘い返球を避けて深く送ろう',
+    clutch:
+      selfInitWinRate >= 60
+        ? 'チャンスボールは自信を持って先手攻撃！'
+        : '無理に打ち込まず、コースを突いてチャンスを待とう',
   };
 
   return {
@@ -741,6 +1198,9 @@ function analyzeRallySubset(rallies: Rally[], setNumber: number): SetBenchAnalys
     wonPoints,
     lostPoints,
     winRate: totalPoints > 0 ? Math.round((wonPoints / totalPoints) * 100) : 0,
+    receiveSummary,
+    serveSummary,
+    rallySummary,
     topWinningActions,
     topLosingActions,
     topSkillFailures,
@@ -787,9 +1247,7 @@ export function calculateBenchAnalytics(
   }
 
   // 直前のセット番号
-  const latestSetNum = activeSetNumber && setMap.has(activeSetNumber)
-    ? activeSetNumber
-    : maxSetNum;
+  const latestSetNum = activeSetNumber && setMap.has(activeSetNumber) ? activeSetNumber : maxSetNum;
 
   // 各セットの分析
   const bySet: Record<number, SetBenchAnalysis> = {};
@@ -806,7 +1264,9 @@ export function calculateBenchAnalytics(
   const trendChanges: TrendChangeItem[] = [];
 
   if (maxSetNum >= 2) {
-    const earlyRallies = rallies.filter((r) => r.gameNumber === 1 || (maxSetNum >= 3 && r.gameNumber <= 2 && r.gameNumber < latestSetNum));
+    const earlyRallies = rallies.filter(
+      (r) => r.gameNumber === 1 || (maxSetNum >= 3 && r.gameNumber <= 2 && r.gameNumber < latestSetNum)
+    );
     const latestRallies = setMap.get(latestSetNum) || [];
 
     const earlyActs = new Map<string, { total: number; won: number }>();
