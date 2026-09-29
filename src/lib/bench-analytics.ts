@@ -10,6 +10,13 @@ import {
   RALLY_TYPE_LABELS,
   MISS_TYPE_LABELS,
   InitiativeType,
+  BENCH_COURSE_LABELS,
+  BENCH_WON_RECEIVE_LABELS,
+  BENCH_WON_THIRDBALL_LABELS,
+  BENCH_WON_RALLY_LABELS,
+  BENCH_LOST_RECEIVE_LABELS,
+  BENCH_LOST_RECEIVE_QUALITY_LABELS,
+  BENCH_LOST_RALLY_LABELS,
 } from '@/types/table-tennis';
 
 export interface ActionImpactItem {
@@ -101,7 +108,7 @@ export interface SetBenchAnalysis {
   // 7. 全失点の内訳
   lostBreakdown: PointBreakdownItem[];
 
-  // 1分間アドバイス用ハイライト (最も伝えるべき3点)
+  // 1分間アドバイス用ハイライト
   quickAdvice: {
     keep: string;
     stop: string;
@@ -146,30 +153,134 @@ export function parseRallyToBenchData(r: Rally): {
   const isWon = r.result === 'won';
   const isSelfServe = r.server === 'self';
 
-  // 1. ベンチコーチ入力で明示された benchActionDetail がある場合
-  if (r.benchActionDetail) {
-    const detail = r.benchActionDetail;
-    let init: InitiativeType = r.initiative || 'neutral';
-    if (!r.initiative) {
-      if (detail.includes('3球目') || detail.includes('先手') || detail.includes('攻撃') || detail.includes('チキータ') || detail.includes('フリック')) {
-        init = 'self_attack';
-      } else if (detail.includes('相手の3球目') || detail.includes('相手先手') || detail.includes('攻められた')) {
-        init = 'opp_attack';
-      }
+  // ===========================================================================
+  // 1. 新しい 1~3 タップ ベンチコーチ入力からの明示的データ
+  // ===========================================================================
+
+  // 得点時の各カテゴリ
+  if (isWon && r.benchWonCategory) {
+    if (r.benchWonCategory === 'service_ace') {
+      const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : 'コース不明';
+      return {
+        actionLabel: `サービスエース (${cName})`,
+        actionCategory: 'serve',
+        initiative: 'self_attack',
+        wonDetailLabel: `自分のサービスエース (${cName})`,
+        lostDetailLabel: 'サーブ後の失点',
+        skillKey: `serve_${r.benchCourse || 'ace'}`,
+        skillName: `${cName}サーブ`,
+      };
     }
 
-    return {
-      actionLabel: detail,
-      actionCategory: detail.includes('サーブ') ? 'serve' : detail.includes('レシーブ') ? 'receive' : detail.includes('3球目') ? 'third_ball' : detail.includes('ラリー') ? 'rally' : 'other',
-      initiative: init,
-      wonDetailLabel: detail,
-      lostDetailLabel: detail,
-      skillKey: detail,
-      skillName: detail,
-    };
+    if (r.benchWonCategory === 'receive') {
+      const techName = r.benchWonReceiveTech ? BENCH_WON_RECEIVE_LABELS[r.benchWonReceiveTech] : 'レシーブ';
+      const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : 'コース不明';
+      const isAttacking = r.benchWonReceiveTech === 'flick' || r.benchWonReceiveTech === 'floated_opp_error';
+      return {
+        actionLabel: `レシーブ (${techName} → ${cName})`,
+        actionCategory: 'receive',
+        initiative: isAttacking ? 'self_attack' : 'neutral',
+        wonDetailLabel: `レシーブ得点 (${techName} → ${cName})`,
+        lostDetailLabel: 'レシーブ後の失点',
+        skillKey: `receive_${r.benchWonReceiveTech || 'tech'}`,
+        skillName: `${techName}レシーブ`,
+      };
+    }
+
+    if (r.benchWonCategory === 'third_ball') {
+      const typeName = r.benchWonThirdBallType ? BENCH_WON_THIRDBALL_LABELS[r.benchWonThirdBallType] : '３球目攻撃';
+      return {
+        actionLabel: `３球目攻撃 (${typeName})`,
+        actionCategory: 'third_ball',
+        initiative: 'self_attack',
+        wonDetailLabel: `３球目攻撃 (${typeName})`,
+        lostDetailLabel: '３球目攻撃の失点',
+        skillKey: `third_ball_${r.benchWonThirdBallType || 'attack'}`,
+        skillName: `３球目攻撃 (${typeName})`,
+      };
+    }
+
+    if (r.benchWonCategory === 'rally') {
+      const rallyName = r.benchWonRallyType ? BENCH_WON_RALLY_LABELS[r.benchWonRallyType] : 'ラリー';
+      const isSelfAtk = r.benchWonRallyType === 'out_attack';
+      const isOppAtk = r.benchWonRallyType === 'out_defend';
+      return {
+        actionLabel: `ラリー (${rallyName})`,
+        actionCategory: 'rally',
+        initiative: isSelfAtk ? 'self_attack' : isOppAtk ? 'opp_attack' : 'neutral',
+        wonDetailLabel: `ラリー得点 (${rallyName})`,
+        lostDetailLabel: 'ラリー失点',
+        skillKey: `rally_${r.benchWonRallyType || 'general'}`,
+        skillName: `${rallyName}ラリー`,
+      };
+    }
   }
 
-  // 2. 詳細入力から自動判定
+  // 失点時の各カテゴリ
+  if (!isWon && r.benchLostCategory) {
+    if (r.benchLostCategory === 'service_ace') {
+      const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : 'コース不明';
+      return {
+        actionLabel: `相手サービスエース (${cName})`,
+        actionCategory: 'receive',
+        initiative: 'opp_attack',
+        wonDetailLabel: 'サービスエース',
+        lostDetailLabel: `相手のサービスエース (${cName})`,
+        skillKey: `receive_ace_${r.benchCourse || 'other'}`,
+        skillName: `${cName}へのレシーブ対応`,
+      };
+    }
+
+    if (r.benchLostCategory === 'receive_miss') {
+      const cName = r.benchCourse ? BENCH_COURSE_LABELS[r.benchCourse] : 'コース不明';
+      const techName = r.benchLostReceiveTech ? BENCH_LOST_RECEIVE_LABELS[r.benchLostReceiveTech] : 'レシーブ';
+      const handName = r.benchLostReceiveHand === 'fore' ? 'フォア' : r.benchLostReceiveHand === 'back' ? 'バック' : '';
+      const fullSkill = `${handName}${techName}`;
+      return {
+        actionLabel: `レシーブミス (${cName}への${fullSkill})`,
+        actionCategory: 'receive',
+        initiative: 'opp_attack',
+        wonDetailLabel: 'レシーブからの得点',
+        lostDetailLabel: `${cName}へのレシーブミス (${fullSkill})`,
+        skillKey: `receive_miss_${r.benchLostReceiveHand || ''}_${r.benchLostReceiveTech || ''}`,
+        skillName: `${fullSkill}レシーブ`,
+      };
+    }
+
+    if (r.benchLostCategory === 'third_ball_lost') {
+      const priorName = r.benchLostPriorReceiveTech ? BENCH_LOST_RECEIVE_LABELS[r.benchLostPriorReceiveTech] : 'ツッツキ';
+      const qualityName = r.benchLostReceiveQuality ? BENCH_LOST_RECEIVE_QUALITY_LABELS[r.benchLostReceiveQuality] : '';
+      return {
+        actionLabel: `相手の３球目強打 (${priorName}後 / ${qualityName})`,
+        actionCategory: 'receive',
+        initiative: 'opp_attack',
+        wonDetailLabel: '相手３球目を防いで得点',
+        lostDetailLabel: `相手の３球目攻撃 (${priorName}後 / ${qualityName})`,
+        skillKey: r.benchLostReceiveQuality === 'floated_chance' ? `floated_${r.benchLostPriorReceiveTech || 'rec'}` : `opp_3rd_${r.benchLostPriorReceiveTech || 'rec'}`,
+        skillName: r.benchLostReceiveQuality === 'floated_chance' ? `${priorName}が浮いて被弾` : `${priorName}後の守備`,
+      };
+    }
+
+    if (r.benchLostCategory === 'rally') {
+      const rallyName = r.benchLostRallyType ? BENCH_LOST_RALLY_LABELS[r.benchLostRallyType] : 'ラリー';
+      const isSelfAtk = r.benchLostRallyType === 'out_attack_lost' || r.benchLostRallyType === 'self_chance_miss';
+      const isOppAtk = r.benchLostRallyType === 'out_defend_lost';
+      return {
+        actionLabel: `ラリー失点 (${rallyName})`,
+        actionCategory: 'rally',
+        initiative: isSelfAtk ? 'self_attack' : isOppAtk ? 'opp_attack' : 'neutral',
+        wonDetailLabel: 'ラリー得点',
+        lostDetailLabel: `ラリー失点 (${rallyName})`,
+        skillKey: `rally_lost_${r.benchLostRallyType || 'gen'}`,
+        skillName: `${rallyName}`,
+      };
+    }
+  }
+
+  // ===========================================================================
+  // 2. 過去バージョン または 詳細試合入力からの自動変換
+  // ===========================================================================
+
   // A. サーブミス
   if (r.actionCategory === 'serve_miss') {
     return {
@@ -192,10 +303,10 @@ export function parseRallyToBenchData(r: Rally): {
     // サービスエース
     if (r.actionCategory === 'serve' && isWon) {
       return {
-        actionLabel: `${serveLabel} (エース・崩し)`,
+        actionLabel: `サービスエース (${serveLabel})`,
         actionCategory: 'serve',
         initiative: 'self_attack',
-        wonDetailLabel: '自分のサービスエース',
+        wonDetailLabel: `自分のサービスエース (${serveLabel})`,
         lostDetailLabel: 'サーブ後の失点',
         skillKey: 'serve',
         skillName: serveLabel,
@@ -206,13 +317,13 @@ export function parseRallyToBenchData(r: Rally): {
     if (r.actionCategory === 'third_ball') {
       const typeText = r.thirdBallType ? THIRD_BALL_TYPE_LABELS[r.thirdBallType] : '3球目攻撃';
       return {
-        actionLabel: `3球目${typeText}`,
+        actionLabel: `３球目攻撃 (${typeText})`,
         actionCategory: 'third_ball',
         initiative: 'self_attack',
-        wonDetailLabel: '３球目攻撃での得点',
-        lostDetailLabel: r.missType ? `3球目${typeText}ミス (無理攻め)` : '3球目攻撃の失点',
+        wonDetailLabel: `３球目攻撃 (${typeText})`,
+        lostDetailLabel: r.missType ? `３球目${typeText}ミス (無理攻め)` : '３球目攻撃の失点',
         skillKey: `third_ball_${r.thirdBallType || 'attack'}`,
-        skillName: `3球目${typeText}`,
+        skillName: `３球目${typeText}`,
       };
     }
   }
@@ -227,7 +338,7 @@ export function parseRallyToBenchData(r: Rally): {
     if (r.actionCategory === 'receive' && !isWon) {
       if (sCourse === 'fore' && sLen === 'short') {
         return {
-          actionLabel: 'フォア前サーブのレシーブ',
+          actionLabel: 'フォア前サーブへのレシーブミス',
           actionCategory: 'receive',
           initiative: 'opp_attack',
           wonDetailLabel: 'フォア前サーブからの得点',
@@ -238,7 +349,7 @@ export function parseRallyToBenchData(r: Rally): {
       }
       if (sCourse === 'back' && sLen === 'long') {
         return {
-          actionLabel: 'バックロングサーブのレシーブ',
+          actionLabel: 'バックロングサーブへのレシーブミス',
           actionCategory: 'receive',
           initiative: 'opp_attack',
           wonDetailLabel: 'バックロングサーブからの得点',
@@ -248,7 +359,7 @@ export function parseRallyToBenchData(r: Rally): {
         };
       }
       return {
-        actionLabel: `${recTech}レシーブ`,
+        actionLabel: `${recTech}レシーブミス`,
         actionCategory: 'receive',
         initiative: 'opp_attack',
         wonDetailLabel: `${recTech}からの得点`,
@@ -262,10 +373,10 @@ export function parseRallyToBenchData(r: Rally): {
     if (r.actionCategory === 'receive' && isWon) {
       if (r.receiveTechnique === 'chiquita' || r.receiveTechnique === 'flick' || r.receiveTechnique === 'drive') {
         return {
-          actionLabel: `レシーブ先手攻撃 (${recTech})`,
+          actionLabel: `レシーブ攻撃 (${recTech})`,
           actionCategory: 'receive',
           initiative: 'self_attack',
-          wonDetailLabel: `レシーブ攻撃 (${recTech}) での得点`,
+          wonDetailLabel: `レシーブ攻撃 (${recTech})`,
           lostDetailLabel: 'レシーブ攻撃ミス',
           skillKey: `receive_${r.receiveTechnique}`,
           skillName: `${recTech}攻撃`,
@@ -306,8 +417,8 @@ export function parseRallyToBenchData(r: Rally): {
       actionLabel: `ラリー展開 (${rType})`,
       actionCategory: 'rally',
       initiative: isSelfAtk ? 'self_attack' : isOppAtk ? 'opp_attack' : 'neutral',
-      wonDetailLabel: 'ラリー戦での得点',
-      lostDetailLabel: 'ラリー戦での失点',
+      wonDetailLabel: isWon ? `ラリー得点 (${rType})` : 'ラリー失点',
+      lostDetailLabel: !isWon ? `ラリー失点 (${rType})` : 'ラリー得点',
       skillKey: `rally_${r.rallyType || 'general'}`,
       skillName: `${rType}ラリー`,
     };
@@ -330,7 +441,7 @@ export function parseRallyToBenchData(r: Rally): {
     actionLabel: isWon ? '相手の凡ミス・得点' : '失点',
     actionCategory: 'other',
     initiative: 'neutral',
-    wonDetailLabel: '相手の凡ミス',
+    wonDetailLabel: '相手の凡ミス・得点',
     lostDetailLabel: '相手攻撃・その他失点',
   };
 }
@@ -625,7 +736,7 @@ export function calculateBenchAnalytics(
     setMap.set(g, list);
   }
 
-  // 直前のセット番号（指定がなければ最大セット番号）
+  // 直前のセット番号
   const latestSetNum = activeSetNumber && setMap.has(activeSetNumber)
     ? activeSetNumber
     : maxSetNum;
@@ -645,7 +756,6 @@ export function calculateBenchAnalytics(
   const trendChanges: TrendChangeItem[] = [];
 
   if (maxSetNum >= 2) {
-    // 序盤セット (第1セット または 第1〜2セット)
     const earlyRallies = rallies.filter((r) => r.gameNumber === 1 || (maxSetNum >= 3 && r.gameNumber <= 2 && r.gameNumber < latestSetNum));
     const latestRallies = setMap.get(latestSetNum) || [];
 
@@ -667,7 +777,6 @@ export function calculateBenchAnalytics(
       latestActs.set(p.actionLabel, cur);
     }
 
-    // 序盤は勝率が高かったが、直前セットで急激に低下した行動を検出
     earlyActs.forEach((early, actName) => {
       const latest = latestActs.get(actName);
       if (early.total >= 2 && latest && latest.total >= 1) {
@@ -704,8 +813,10 @@ export function calculateBenchAnalytics(
 
     for (const r of selfServeRallies) {
       let key = '';
-      if (r.serveCourse && r.serveLength) {
-        key = getServe8WayLabel(r.serveLength, r.serveCourse);
+      if (r.benchCourse && r.benchCourse !== 'unknown') {
+        key = `${BENCH_COURSE_LABELS[r.benchCourse]}サーブ`;
+      } else if (r.serveCourse && r.serveLength) {
+        key = `${getServe8WayLabel(r.serveLength, r.serveCourse)}サーブ`;
       } else if (r.serveCourse) {
         key = `${SERVE_COURSE_LABELS[r.serveCourse]}サーブ`;
       } else if (r.benchActionDetail && r.benchActionDetail.includes('サーブ')) {

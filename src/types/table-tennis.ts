@@ -142,6 +142,20 @@ export const INITIATIVE_LABELS: Record<InitiativeType, string> = {
   unknown: '不明・その他',
 };
 
+// ベンチコーチ入力 得点詳細タイプ
+export type BenchWonReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'floated_opp_error';
+export type BenchWonThirdBallType = 'vs_push' | 'vs_topspin' | 'chance_from_serve';
+export type BenchWonRallyType = 'on_table' | 'out_attack' | 'out_defend' | 'out_rally' | 'opp_chance_miss';
+
+// ベンチコーチ入力 失点詳細タイプ
+export type BenchLostReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive' | 'smash';
+export type BenchLostPriorReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive';
+export type BenchLostReceiveQuality = 'good' | 'floated_chance';
+export type BenchLostRallyType = 'on_table' | 'out_attack_lost' | 'out_defend_lost' | 'out_rally_lost' | 'self_chance_miss';
+
+// ベンチコーチ 簡易コース
+export type BenchCourse = 'fore_short' | 'middle_short' | 'back_short' | 'fore_long' | 'middle_long' | 'back_long' | 'unknown';
+
 // 1プレーの記録
 export interface Rally {
   id: string;
@@ -176,7 +190,18 @@ export interface Rally {
 
   // ベンチコーチ入力用拡張フィールド
   initiative?: InitiativeType; // 先手を取った (自分攻め) / 先手を取られた (相手攻め) / 互角
-  benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃", "ツッツキ・ストップ後相手ミス", "フォア前レシーブミス" 等)
+  benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃 (対ツッツキ)", "レシーブミス (フォア前 / フォアツッツキ)" 等)
+  benchCourse?: BenchCourse;
+  benchWonCategory?: 'service_ace' | 'receive' | 'third_ball' | 'rally' | 'unknown';
+  benchLostCategory?: 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'rally' | 'serve_miss' | 'unknown';
+  benchWonReceiveTech?: BenchWonReceiveTech;
+  benchWonThirdBallType?: BenchWonThirdBallType;
+  benchWonRallyType?: BenchWonRallyType;
+  benchLostReceiveTech?: BenchLostReceiveTech;
+  benchLostReceiveHand?: 'fore' | 'back';
+  benchLostPriorReceiveTech?: BenchLostPriorReceiveTech;
+  benchLostReceiveQuality?: BenchLostReceiveQuality;
+  benchLostRallyType?: BenchLostRallyType;
 
   memo?: string;
   createdAt: string;
@@ -296,3 +321,59 @@ export const MISS_TYPE_LABELS: Record<MissType, string> = {
   net_in: '相手ネットイン',
   other: 'その他ミス',
 };
+
+export const BENCH_COURSE_LABELS: Record<BenchCourse, string> = {
+  fore_short: 'フォア前',
+  middle_short: 'ミドル前',
+  back_short: 'バック前',
+  fore_long: 'フォアロング',
+  middle_long: 'ミドルロング',
+  back_long: 'バックロング',
+  unknown: 'コース不明',
+};
+
+export const BENCH_WON_RECEIVE_LABELS: Record<BenchWonReceiveTech, string> = {
+  push: 'ツッツキ',
+  stop: 'ストップ',
+  flick: 'フリック',
+  sink: '流し',
+  floated_opp_error: '浮いたけど相手ミス',
+};
+
+export const BENCH_WON_THIRDBALL_LABELS: Record<BenchWonThirdBallType, string> = {
+  vs_push: '対ツッツキ',
+  vs_topspin: '対上回転',
+  chance_from_serve: 'サーブでチャンスボール',
+};
+
+export const BENCH_WON_RALLY_LABELS: Record<BenchWonRallyType, string> = {
+  on_table: '台上',
+  out_attack: '打ち勝ち',
+  out_defend: '守り勝ち',
+  out_rally: '入れあい勝ち',
+  opp_chance_miss: 'チャンスボールを相手がミス',
+};
+
+export const BENCH_LOST_RECEIVE_LABELS: Record<BenchLostReceiveTech, string> = {
+  push: 'ツッツキ',
+  stop: 'ストップ',
+  flick: 'フリック',
+  sink: '流し',
+  light_hit: '軽打',
+  drive: 'ドライブ',
+  smash: '強打',
+};
+
+export const BENCH_LOST_RECEIVE_QUALITY_LABELS: Record<BenchLostReceiveQuality, string> = {
+  good: 'うまくいった',
+  floated_chance: '浮いてチャンスボール',
+};
+
+export const BENCH_LOST_RALLY_LABELS: Record<BenchLostRallyType, string> = {
+  on_table: '台上',
+  out_attack_lost: '打ち負け',
+  out_defend_lost: '守り負け',
+  out_rally_lost: '入れあい負け',
+  self_chance_miss: 'チャンスボールを自分がミス',
+};
+
