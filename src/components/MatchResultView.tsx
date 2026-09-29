@@ -16,6 +16,8 @@ import {
   User,
   ArrowRight,
   Volume2,
+  Clock,
+  Zap,
 } from 'lucide-react';
 import { playVictoryFanfare, playDefeatSound, unlockAudioContext } from '@/lib/sound-effects';
 
@@ -25,6 +27,7 @@ interface MatchResultViewProps {
   myGameScore: number;
   oppGameScore: number;
   onGoToHome: () => void;
+  onGoToBenchAnalysis?: () => void;
   onGoToAnalysis: () => void;
   onGoToMatches: () => void;
   onReopenMatch: () => void;
@@ -36,6 +39,7 @@ export const MatchResultView: React.FC<MatchResultViewProps> = ({
   myGameScore,
   oppGameScore,
   onGoToHome,
+  onGoToBenchAnalysis,
   onGoToAnalysis,
   onGoToMatches,
   onReopenMatch,
@@ -115,7 +119,7 @@ export const MatchResultView: React.FC<MatchResultViewProps> = ({
             )}
           </div>
 
-          {/* 結果タイトル (ご要望: 「3-0 勝利」「1-3 敗北」) */}
+          {/* 結果タイトル */}
           <div>
             <div className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-sm">
               {myGameScore} - {oppGameScore} {isWon ? '勝利' : '敗北'}
@@ -230,14 +234,25 @@ export const MatchResultView: React.FC<MatchResultViewProps> = ({
       </div>
 
       {/* サブアクションボタングループ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {onGoToBenchAnalysis && (
+          <button
+            type="button"
+            onClick={onGoToBenchAnalysis}
+            className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+          >
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span>ベンチコーチ分析</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onGoToAnalysis}
           className="p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
         >
           <BarChart3 className="w-4 h-4 text-blue-600" />
-          <span>この試合の詳細分析を見る</span>
+          <span>総合分析を見る</span>
         </button>
 
         <button

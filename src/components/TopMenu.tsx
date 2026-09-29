@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { Match } from '@/types/table-tennis';
@@ -13,12 +13,18 @@ import {
   Sparkles,
   Award,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Layers,
+  Flame,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface TopMenuProps {
-  onStartNewMatch: () => void;
-  onGoToAnalysis: () => void;
+  onStartBenchInput: () => void;
+  onStartDetailedInput: () => void;
+  onGoToBenchAnalysis: () => void;
+  onGoToComprehensiveAnalysis: () => void;
   onGoToMatches: () => void;
   onGoToDataManagement: () => void;
   onSelectRecentMatch: (matchId: string) => void;
@@ -27,8 +33,10 @@ interface TopMenuProps {
 }
 
 export const TopMenu: React.FC<TopMenuProps> = ({
-  onStartNewMatch,
-  onGoToAnalysis,
+  onStartBenchInput,
+  onStartDetailedInput,
+  onGoToBenchAnalysis,
+  onGoToComprehensiveAnalysis,
   onGoToMatches,
   onGoToDataManagement,
   onSelectRecentMatch,
@@ -39,7 +47,7 @@ export const TopMenu: React.FC<TopMenuProps> = ({
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-200">
       {/* 1. ヒーロー / アプリ紹介カード */}
       <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-emerald-900/10 relative overflow-hidden">
-        {/* 背景の装飾光・円 */}
+        {/* 背景装飾 */}
         <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
         <div className="absolute -left-10 -top-10 w-48 h-48 bg-teal-400/20 rounded-full blur-2xl pointer-events-none"></div>
 
@@ -53,8 +61,8 @@ export const TopMenu: React.FC<TopMenuProps> = ({
               TT Analytics
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100/90 max-w-lg leading-relaxed">
-              1球ごとのサーブ・レシーブ・コース・ミス要因を高速記録。<br className="hidden sm:inline" />
-              クラウドデータベースと連動し、相手戦型別の弱点や強みを徹底分析します。
+              ベンチコーチからの高速入力 ＆ セット間1分アドバイスに完全対応。<br className="hidden sm:inline" />
+              1球ごとの詳細記録から卓球台ヒートマップまで多角的に分析します。
             </p>
           </div>
 
@@ -65,75 +73,144 @@ export const TopMenu: React.FC<TopMenuProps> = ({
         </div>
       </div>
 
-      {/* 2. メインメニュー（2大メニュー：試合入力 ＆ 分析） */}
+      {/* 2. 【入力モード】 (ベンチコーチ入力 ＆ 詳細試合入力) */}
       <div className="space-y-3">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center justify-between">
-          <span>メインメニュー</span>
-          <span className="text-[11px] font-normal text-slate-400">タップして開始</span>
+        <div className="text-xs font-black text-slate-500 uppercase tracking-wider px-1 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span>【入力モード】</span>
+          <span className="text-[11px] font-normal text-slate-400">状況に合わせて選択</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          {/* メニュー 1: 試合入力 */}
+          {/* ① ベンチコーチ入力 */}
           <button
             type="button"
-            onClick={onStartNewMatch}
-            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-emerald-500 rounded-3xl p-6 sm:p-7 text-left shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[180px] sm:min-h-[220px]"
+            onClick={onStartBenchInput}
+            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-amber-500 rounded-3xl p-6 text-left shadow-sm hover:shadow-xl hover:shadow-amber-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[200px]"
           >
             <div className="flex items-start justify-between w-full">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform">
-                <Play className="w-7 h-7 fill-white translate-x-0.5" />
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform">
+                <Zap className="w-6 h-6 fill-white" />
               </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full">
-                <PlusCircle className="w-3 h-3" />
-                新規試合開始
+              <span className="inline-flex items-center gap-1 text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full">
+                ⚡ 1タップ高速
               </span>
             </div>
 
             <div className="space-y-1 mt-4">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors flex items-center gap-1.5">
-                <span>試合入力</span>
-                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                未入力のクリーンな状態で新しい試合を開始。<br />
-                得失点、コース、回転を0秒でサクサク記録します。
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 group-hover:text-amber-600 transition-colors">
+                  ベンチコーチ入力
+                </h2>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                ベンチからリアルタイム高速入力。<br />
+                <strong>回転入力なし</strong>・<strong>不明スキップ対応</strong>でセット間1分アドバイスに直結！
               </p>
             </div>
           </button>
 
-          {/* メニュー 2: 分析 */}
+          {/* ② 詳細試合入力 */}
           <button
             type="button"
-            onClick={onGoToAnalysis}
-            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-blue-500 rounded-3xl p-6 sm:p-7 text-left shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[180px] sm:min-h-[220px]"
+            onClick={onStartDetailedInput}
+            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-emerald-500 rounded-3xl p-6 text-left shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[200px]"
           >
             <div className="flex items-start justify-between w-full">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-7 h-7" />
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform">
+                <Play className="w-6 h-6 fill-white translate-x-0.5" />
               </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full">
-                <Award className="w-3 h-3" />
-                戦術・傾向
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full">
+                📝 完全詳細記録
               </span>
             </div>
 
             <div className="space-y-1 mt-4">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                <span>分析</span>
-                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                相手戦型別の勝率、サーブ8分割ヒートマップ、<br />
-                レシーブ技術やミスの詳細要因をグラフ集計。
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">
+                  詳細試合入力
+                </h2>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                サーブ回転・8分割コース・3球目打法・ラリー展開まで1球ずつ精密に記録します。
               </p>
             </div>
           </button>
         </div>
       </div>
 
-      {/* 3. サブ機能 / 最近の試合・データ管理 */}
+      {/* 3. 【分析モード】 (ベンチコーチ分析 ＆ 総合分析) */}
+      <div className="space-y-3">
+        <div className="text-xs font-black text-slate-500 uppercase tracking-wider px-1 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+          <span>【分析モード】</span>
+          <span className="text-[11px] font-normal text-slate-400">目的に合わせて選択</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          {/* ① ベンチコーチ分析 */}
+          <button
+            type="button"
+            onClick={onGoToBenchAnalysis}
+            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-amber-500 rounded-3xl p-6 text-left shadow-sm hover:shadow-xl hover:shadow-amber-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[200px]"
+          >
+            <div className="flex items-start justify-between w-full">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-110 transition-transform">
+                <Clock className="w-6 h-6" />
+              </div>
+              <span className="inline-flex items-center gap-1 text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full">
+                ⏱️ 1分間アドバイス
+              </span>
+            </div>
+
+            <div className="space-y-1 mt-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 group-hover:text-amber-600 transition-colors">
+                  ベンチコーチ分析
+                </h2>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                直前セットの効いている行動・失点原因・先手得点率・全得失点内訳・勝負サーブを即座に提示！
+              </p>
+            </div>
+          </button>
+
+          {/* ② 総合分析 */}
+          <button
+            type="button"
+            onClick={onGoToComprehensiveAnalysis}
+            className="group relative bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-blue-500 rounded-3xl p-6 text-left shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all active:scale-[0.98] flex flex-col justify-between min-h-[200px]"
+          >
+            <div className="flex items-start justify-between w-full">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-6 h-6" />
+              </div>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full">
+                📊 総合・多角集計
+              </span>
+            </div>
+
+            <div className="space-y-1 mt-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
+                  総合分析
+                </h2>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                卓球台9分割ヒートマップ、相手戦型別勝率、技術別得失点一覧、ミス要因円グラフを徹底分析。
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 4. サブ機能 / 最近の試合・データ管理 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-        {/* 直近の試合の続き・履歴 */}
+        {/* 直近の試合 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-slate-800">

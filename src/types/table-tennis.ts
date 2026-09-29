@@ -132,6 +132,16 @@ export function isGameFinished(scoreMy: number, scoreOpp: number): boolean {
   return false;
 }
 
+// 先手・主導権タイプ (自分から先手攻撃した / 相手に先手を取られた / 互角ラリー / 不明)
+export type InitiativeType = 'self_attack' | 'opp_attack' | 'neutral' | 'unknown';
+
+export const INITIATIVE_LABELS: Record<InitiativeType, string> = {
+  self_attack: '自分から先手攻撃',
+  opp_attack: '相手に先手を取られた',
+  neutral: '互角ラリー・台上',
+  unknown: '不明・その他',
+};
+
 // 1プレーの記録
 export interface Rally {
   id: string;
@@ -163,6 +173,10 @@ export interface Rally {
 
   // ミス種別
   missType?: MissType;
+
+  // ベンチコーチ入力用拡張フィールド
+  initiative?: InitiativeType; // 先手を取った (自分攻め) / 先手を取られた (相手攻め) / 互角
+  benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃", "ツッツキ・ストップ後相手ミス", "フォア前レシーブミス" 等)
 
   memo?: string;
   createdAt: string;

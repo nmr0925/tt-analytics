@@ -31,6 +31,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { Navbar, TabType } from '@/components/Navbar';
 import { ScoreBoard } from '@/components/ScoreBoard';
 import { PlayInputWizard } from '@/components/PlayInputWizard';
+import { BenchCoachInput } from '@/components/BenchCoachInput';
+import { BenchCoachAnalysisView } from '@/components/BenchCoachAnalysisView';
 import { PlayHistoryList } from '@/components/PlayHistoryList';
 import { MatchSetupModal } from '@/components/MatchSetupModal';
 import { AnalysisFilters } from '@/components/AnalysisFilters';
@@ -42,15 +44,13 @@ import { MatchesList } from '@/components/MatchesList';
 import { DataManagement } from '@/components/DataManagement';
 import { TopMenu } from '@/components/TopMenu';
 import { MatchResultView } from '@/components/MatchResultView';
-import { Swords, PlusCircle, Cloud, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Swords, PlusCircle, Cloud, RefreshCw, CheckCircle2, AlertCircle, Zap, Play, Clock, BarChart3 } from 'lucide-react';
 import {
   playPointWonSound,
   playPointLostSound,
   playGameWonSound,
   unlockAudioContext,
 } from '@/lib/sound-effects';
-
-import { INITIAL_MATCHES, INITIAL_RALLIES } from '@/lib/mock-data';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -102,7 +102,6 @@ export default function HomePage() {
       setAnalyticsRallies(result.rallies);
       setIsFromCloud(result.fromCloud);
       if (result.fromCloud) {
-        // クラウドデータを取得できた場合はメインステートも同期
         setMatches(result.matches);
         setAllRallies(result.rallies);
       }
@@ -114,8 +113,7 @@ export default function HomePage() {
   // タブ切り替え時のハンドラ
   const handleTabChange = (newTab: TabType) => {
     setActiveTab(newTab);
-    if (newTab === 'analysis' || newTab === 'matches') {
-      // 分析画面または試合一覧を開いたときは最新クラウドDBデータを参照
+    if (newTab === 'comprehensive_analysis' || newTab === 'bench_analysis' || newTab === 'matches') {
       loadCloudAnalyticsData();
     }
   };
@@ -176,7 +174,6 @@ export default function HomePage() {
 
     // ゲーム終了判定 (11点以上かつ2点差以上)
     if (isGameFinished(newScoreMy, newScoreOpp)) {
-      // 該当試合の全ゲーム勝敗を再集計
       const matchRallies = updated.filter((r) => r.matchId === activeMatchIdState);
       const games = new Map<number, { won: number; lost: number }>();
       for (const r of matchRallies) {
@@ -199,7 +196,7 @@ export default function HomePage() {
       const gamesNeededToWin = Math.ceil(gameFormat / 2);
 
       if (updatedMyGames >= gamesNeededToWin || updatedOppGames >= gamesNeededToWin) {
-        // マッチ決着 (MatchResultViewマウント時にファンファーレ/敗北音が鳴ります)
+        // マッチ決着
         const wonMatch = updatedMyGames > updatedOppGames;
         setSyncStatusMsg(
           wonMatch
@@ -223,7 +220,7 @@ export default function HomePage() {
           }
         }
       } else {
-        // 次のゲームへ自動移行（ゲーム獲得ジングル再生）
+        // 次のゲームへ自動移行
         if (newScoreMy > newScoreOpp) {
           playGameWonSound();
         } else {
@@ -237,7 +234,6 @@ export default function HomePage() {
         setTimeout(() => setSyncStatusMsg(null), 5000);
       }
     } else {
-      // 通常の1点ごとの効果音（得点: 爽快ピンポン音 / 失点: 控えめタップ音）
       if (rally.result === 'won') {
         playPointWonSound();
       } else {
@@ -283,7 +279,6 @@ export default function HomePage() {
     saveMatch(updatedMatch);
     refreshData();
 
-    // クラウド同期
     if (isSupabaseConfigured) {
       setSyncStatusMsg('☁️ クラウドDBに同期中...');
       const syncRes = await syncMatchToCloud(activeMatch.id);
@@ -300,7 +295,7 @@ export default function HomePage() {
   };
 
   // 新規試合を空の状態で開始
-  const handleStartNewMatch = () => {
+  const handleStartNewMatch = (targetTab: TabType = 'bench_input') => {
     const newMatch: Match = {
       id: 'match-' + Date.now(),
       date: new Date().toISOString().split('T')[0],
@@ -322,7 +317,7 @@ export default function HomePage() {
     setCurrentGameNumber(1);
     setEditingMatch(newMatch);
     setIsMatchModalOpen(true);
-    setActiveTab('input');
+    setActiveTab(targetTab);
   };
 
   // 試合の保存（新規・編集）
@@ -331,7 +326,6 @@ export default function HomePage() {
     setActiveMatchId(match.id);
     refreshData();
     setCurrentGameNumber(1);
-    setActiveTab('input');
   };
 
   // 試合の削除
@@ -341,14 +335,14 @@ export default function HomePage() {
   };
 
   // アクティブ試合の切り替え
-  const handleSelectActiveMatch = (matchId: string) => {
+  const handleSelectActiveMatch = (matchId: string, targetTab: TabType = 'bench_input') => {
     setActiveMatchId(matchId);
     setActiveMatchIdState(matchId);
     setCurrentGameNumber(1);
-    setActiveTab('input');
+    setActiveTab(targetTab);
   };
 
-  // 分析データの計算（常にクラウドDBデータをベースに集計）
+  // 総合分析データの計算
   const filteredRalliesData = useMemo(() => {
     return filterRallies(analyticsRallies, analyticsMatches, analyticsFilter);
   }, [analyticsRallies, analyticsMatches, analyticsFilter]);
@@ -373,7 +367,7 @@ export default function HomePage() {
       <Navbar
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onNewMatchClick={handleStartNewMatch}
+        onNewMatchClick={() => handleStartNewMatch('bench_input')}
         activeMatchName={
           activeMatch
             ? `${activeMatch.date} vs ${activeMatch.opponentName || '対戦相手'}`
@@ -396,20 +390,124 @@ export default function HomePage() {
         {/* ========================================================================= */}
         {activeTab === 'home' && (
           <TopMenu
-            onStartNewMatch={handleStartNewMatch}
-            onGoToAnalysis={() => handleTabChange('analysis')}
+            onStartBenchInput={() => handleStartNewMatch('bench_input')}
+            onStartDetailedInput={() => handleStartNewMatch('detailed_input')}
+            onGoToBenchAnalysis={() => handleTabChange('bench_analysis')}
+            onGoToComprehensiveAnalysis={() => handleTabChange('comprehensive_analysis')}
             onGoToMatches={() => handleTabChange('matches')}
             onGoToDataManagement={() => handleTabChange('settings')}
-            onSelectRecentMatch={(matchId) => handleSelectActiveMatch(matchId)}
+            onSelectRecentMatch={(matchId) => handleSelectActiveMatch(matchId, 'bench_input')}
             recentMatches={matches}
             totalRalliesCount={allRallies.length}
           />
         )}
 
         {/* ========================================================================= */}
-        {/* 1. 入力タブ (Input Tab) */}
+        {/* 1-A. ベンチコーチ入力タブ (Bench Coach Input) */}
         {/* ========================================================================= */}
-        {activeTab === 'input' && (
+        {activeTab === 'bench_input' && (
+          <div>
+            {!activeMatch ? (
+              <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-sm border border-amber-100">
+                  <Zap className="w-8 h-8 fill-amber-500 text-amber-500" />
+                </div>
+                <h2 className="text-xl font-black text-slate-900">
+                  まずは試合・対戦相手を登録してください
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                  ベンチコーチ入力では、回転入力不要で1タップ即座にプレーを記録できます。<br />
+                  対戦相手の名前や戦型を設定して開始しましょう。
+                </p>
+                <div className="flex flex-wrap justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleStartNewMatch('bench_input')}
+                    className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-3 rounded-2xl text-sm shadow-md transition-all active:scale-95"
+                  >
+                    <Zap className="w-4 h-4 fill-white" />
+                    ベンチコーチ入力を開始する
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartNewMatch('detailed_input')}
+                    className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-3 rounded-2xl text-sm border border-slate-200 transition-all active:scale-95"
+                  >
+                    <Play className="w-4 h-4" />
+                    詳細試合入力へ
+                  </button>
+                </div>
+              </div>
+            ) : activeMatch.isCompleted ? (
+              <MatchResultView
+                match={activeMatch}
+                rallies={currentMatchRallies}
+                myGameScore={myGameScore}
+                oppGameScore={oppGameScore}
+                onGoToHome={() => setActiveTab('home')}
+                onGoToBenchAnalysis={() => setActiveTab('bench_analysis')}
+                onGoToAnalysis={() => {
+                  setAnalyticsFilter((prev) => ({ ...prev, matchId: activeMatch.id }));
+                  setActiveTab('comprehensive_analysis');
+                }}
+                onGoToMatches={() => setActiveTab('matches')}
+                onReopenMatch={() => {
+                  const updatedMatch: Match = {
+                    ...activeMatch,
+                    isCompleted: false,
+                  };
+                  saveMatch(updatedMatch);
+                  refreshData();
+                  handleUndo();
+                }}
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* 左側: スコアボード ＆ ベンチコーチ入力 (7/12) */}
+                <div className="lg:col-span-7 space-y-5">
+                  <ScoreBoard
+                    match={activeMatch}
+                    currentGameNumber={currentGameNumber}
+                    scoreMy={scoreMy}
+                    scoreOpp={scoreOpp}
+                    myGameScore={myGameScore}
+                    oppGameScore={oppGameScore}
+                    onUndo={handleUndo}
+                    onNextGame={handleNextGame}
+                    onCompleteMatch={handleCompleteMatch}
+                    canUndo={currentMatchRallies.length > 0}
+                  />
+
+                  <BenchCoachInput
+                    key={`bench-${activeMatch.id}-${currentGameNumber}-${scoreMy}-${scoreOpp}`}
+                    matchId={activeMatch.id}
+                    gameNumber={currentGameNumber}
+                    scoreMy={scoreMy}
+                    scoreOpp={scoreOpp}
+                    defaultServer={defaultServer}
+                    onSaveRally={handleSaveRally}
+                    onUndo={handleUndo}
+                    canUndo={currentMatchRallies.length > 0}
+                    onGoToBenchAnalysis={() => handleTabChange('bench_analysis')}
+                  />
+                </div>
+
+                {/* 右側: プレー履歴 (5/12) */}
+                <div className="lg:col-span-5 space-y-5">
+                  <PlayHistoryList
+                    rallies={currentMatchRallies}
+                    onDeleteRally={handleDeleteRally}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 1-B. 詳細試合入力タブ (Detailed Match Input) */}
+        {/* ========================================================================= */}
+        {activeTab === 'detailed_input' && (
           <div>
             {!activeMatch ? (
               <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4 shadow-sm">
@@ -420,18 +518,15 @@ export default function HomePage() {
                   まずは試合・対戦相手を登録してください
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                  日付、相手の戦型（シェーク/カットマン/粒高など）、利き腕を登録すると、1プレーずつの記録を開始できます。
+                  日付、相手の戦型、利き腕を登録すると、サーブ回転やコースを含む完全な1プレーずつの記録を開始できます。
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingMatch(null);
-                    setIsMatchModalOpen(true);
-                  }}
+                  onClick={() => handleStartNewMatch('detailed_input')}
                   className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-2xl text-sm shadow-md transition-all active:scale-95"
                 >
                   <PlusCircle className="w-5 h-5" />
-                  新規試合を開始する
+                  詳細試合入力を開始する
                 </button>
               </div>
             ) : activeMatch.isCompleted ? (
@@ -441,9 +536,10 @@ export default function HomePage() {
                 myGameScore={myGameScore}
                 oppGameScore={oppGameScore}
                 onGoToHome={() => setActiveTab('home')}
+                onGoToBenchAnalysis={() => setActiveTab('bench_analysis')}
                 onGoToAnalysis={() => {
                   setAnalyticsFilter((prev) => ({ ...prev, matchId: activeMatch.id }));
-                  setActiveTab('analysis');
+                  setActiveTab('comprehensive_analysis');
                 }}
                 onGoToMatches={() => setActiveTab('matches')}
                 onReopenMatch={() => {
@@ -474,7 +570,7 @@ export default function HomePage() {
                   />
 
                   <PlayInputWizard
-                    key={`${activeMatch.id}-${currentGameNumber}-${scoreMy}-${scoreOpp}`}
+                    key={`detail-${activeMatch.id}-${currentGameNumber}-${scoreMy}-${scoreOpp}`}
                     matchId={activeMatch.id}
                     gameNumber={currentGameNumber}
                     scoreMy={scoreMy}
@@ -499,9 +595,20 @@ export default function HomePage() {
         )}
 
         {/* ========================================================================= */}
-        {/* 2. 分析タブ (Analysis Tab) */}
+        {/* 2-A. ベンチコーチ分析タブ (Bench Coach Analysis) */}
         {/* ========================================================================= */}
-        {activeTab === 'analysis' && (
+        {activeTab === 'bench_analysis' && (
+          <BenchCoachAnalysisView
+            rallies={currentMatchRallies.length > 0 ? currentMatchRallies : allRallies}
+            match={activeMatch}
+            onGoToInput={() => handleTabChange('bench_input')}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* 2-B. 総合分析タブ (Comprehensive Analysis) */}
+        {/* ========================================================================= */}
+        {activeTab === 'comprehensive_analysis' && (
           <div className="space-y-5">
             {/* クラウドDB接続 ＆ 同期ステータスバー */}
             <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -568,16 +675,13 @@ export default function HomePage() {
           <MatchesList
             matches={analyticsMatches}
             activeMatchId={activeMatchIdState}
-            onSelectActiveMatch={handleSelectActiveMatch}
+            onSelectActiveMatch={(id) => handleSelectActiveMatch(id, 'bench_input')}
             onEditMatch={(m) => {
               setEditingMatch(m);
               setIsMatchModalOpen(true);
             }}
             onDeleteMatch={handleDeleteMatch}
-            onNewMatchClick={() => {
-              setEditingMatch(null);
-              setIsMatchModalOpen(true);
-            }}
+            onNewMatchClick={() => handleStartNewMatch('bench_input')}
           />
         )}
 
