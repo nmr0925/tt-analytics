@@ -148,6 +148,9 @@ export type BenchWonThirdBallType = 'vs_push' | 'vs_topspin' | 'chance_from_serv
 export type BenchWonRallyType = 'on_table' | 'out_attack' | 'out_defend' | 'out_rally' | 'opp_chance_miss';
 
 // ベンチコーチ入力 失点詳細タイプ
+export type BenchLostSelfMissType = 'serve_miss' | 'receive_miss' | 'third_ball_miss';
+export type BenchLostThirdBallPosition = 'fore' | 'pivot' | 'back';
+export type BenchLostThirdBallSituation = 'vs_push' | 'vs_topspin' | 'chance_from_serve';
 export type BenchLostReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive' | 'smash';
 export type BenchLostPriorReceiveTech = 'push' | 'stop' | 'flick' | 'sink' | 'light_hit' | 'drive';
 export type BenchLostReceiveQuality = 'good' | 'floated_chance';
@@ -190,10 +193,14 @@ export interface Rally {
 
   // ベンチコーチ入力用拡張フィールド
   initiative?: InitiativeType; // 先手を取った (自分攻め) / 先手を取られた (相手攻め) / 互角
-  benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃 (対ツッツキ)", "レシーブミス (フォア前 / フォアツッツキ)" 等)
+  benchActionDetail?: string; // プレーの詳細ラベル (例: "3球目攻撃 (対ツッツキ)", "３球目攻撃ミス (回り込み / 対ツッツキ / フォア前)" 等)
   benchCourse?: BenchCourse;
   benchWonCategory?: 'service_ace' | 'receive' | 'third_ball' | 'rally' | 'unknown';
-  benchLostCategory?: 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'rally' | 'serve_miss' | 'unknown';
+  benchLostCategory?: 'self_miss' | 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'rally' | 'serve_miss' | 'unknown';
+  benchLostSelfMissType?: BenchLostSelfMissType;
+  benchLostThirdBallPosition?: BenchLostThirdBallPosition;
+  benchLostThirdBallSituation?: BenchLostThirdBallSituation;
+  benchLostThirdBallReceiveCourse?: BenchCourse;
   benchWonReceiveTech?: BenchWonReceiveTech;
   benchWonThirdBallType?: BenchWonThirdBallType;
   benchWonRallyType?: BenchWonRallyType;
@@ -369,6 +376,24 @@ export const BENCH_LOST_RECEIVE_QUALITY_LABELS: Record<BenchLostReceiveQuality, 
   floated_chance: '浮いてチャンスボール',
 };
 
+export const BENCH_LOST_SELF_MISS_LABELS: Record<BenchLostSelfMissType, string> = {
+  serve_miss: 'サーブミス',
+  receive_miss: 'レシーブミス',
+  third_ball_miss: '３球目攻撃ミス',
+};
+
+export const BENCH_LOST_THIRDBALL_POS_LABELS: Record<BenchLostThirdBallPosition, string> = {
+  fore: 'フォア',
+  pivot: '回り込み',
+  back: 'バック',
+};
+
+export const BENCH_LOST_THIRDBALL_SITUATION_LABELS: Record<BenchLostThirdBallSituation, string> = {
+  vs_push: '対ツッツキ',
+  vs_topspin: '対上回転',
+  chance_from_serve: 'サーブでチャンスボール',
+};
+
 export const BENCH_LOST_RALLY_LABELS: Record<BenchLostRallyType, string> = {
   on_table: '台上',
   out_attack_lost: '打ち負け',
@@ -376,4 +401,5 @@ export const BENCH_LOST_RALLY_LABELS: Record<BenchLostRallyType, string> = {
   out_rally_lost: '入れあい負け',
   self_chance_miss: 'チャンスボールを自分がミス',
 };
+
 

@@ -15,6 +15,9 @@ import {
   BenchWonReceiveTech,
   BenchWonThirdBallType,
   BenchWonRallyType,
+  BenchLostSelfMissType,
+  BenchLostThirdBallPosition,
+  BenchLostThirdBallSituation,
   BenchLostReceiveTech,
   BenchLostPriorReceiveTech,
   BenchLostReceiveQuality,
@@ -24,6 +27,9 @@ import {
   BENCH_WON_RECEIVE_LABELS,
   BENCH_WON_THIRDBALL_LABELS,
   BENCH_WON_RALLY_LABELS,
+  BENCH_LOST_SELF_MISS_LABELS,
+  BENCH_LOST_THIRDBALL_POS_LABELS,
+  BENCH_LOST_THIRDBALL_SITUATION_LABELS,
   BENCH_LOST_RECEIVE_LABELS,
   BENCH_LOST_RECEIVE_QUALITY_LABELS,
   BENCH_LOST_RALLY_LABELS,
@@ -55,7 +61,7 @@ interface BenchCoachInputProps {
 }
 
 type WonCategory = 'service_ace' | 'receive' | 'third_ball' | 'rally';
-type LostCategory = 'service_ace' | 'receive_miss' | 'third_ball_lost' | 'rally';
+type LostCategory = 'self_miss' | 'third_ball_lost' | 'rally';
 
 export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
   matchId,
@@ -70,7 +76,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
 }) => {
   // 現在の入力ステート
   const [selectedResult, setSelectedResult] = useState<PointResult>('won');
-  
+
   // 得点時のステップ管理
   const [wonCategory, setWonCategory] = useState<WonCategory | null>(null);
   const [wonStep, setWonStep] = useState<'main' | 'receive_tech' | 'course'>('main');
@@ -78,9 +84,29 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
 
   // 失点時のステップ管理
   const [lostCategory, setLostCategory] = useState<LostCategory | null>(null);
-  const [lostStep, setLostStep] = useState<'main' | 'course' | 'receive_tech' | 'receive_hand' | 'prior_tech' | 'quality'>('main');
+  const [lostStep, setLostStep] = useState<
+    | 'main'
+    // 自分のミス用ステップ
+    | 'self_miss_type'
+    | 'rec_miss_course'
+    | 'rec_miss_tech'
+    | 'rec_miss_hand'
+    | 'third_miss_pos'
+    | 'third_miss_situation'
+    | 'third_miss_course'
+    // 相手3球目用ステップ
+    | 'prior_tech'
+    | 'quality'
+    // ラリー用ステップ
+    | 'rally_type'
+  >('main');
+
+  // 一時選択バッファ (失点)
+  const [selectedLostSelfMissType, setSelectedLostSelfMissType] = useState<BenchLostSelfMissType | null>(null);
   const [selectedLostCourse, setSelectedLostCourse] = useState<BenchCourse>('unknown');
   const [selectedLostReceiveTech, setSelectedLostReceiveTech] = useState<BenchLostReceiveTech | null>(null);
+  const [selectedThirdMissPos, setSelectedThirdMissPos] = useState<BenchLostThirdBallPosition | null>(null);
+  const [selectedThirdMissSit, setSelectedThirdMissSit] = useState<BenchLostThirdBallSituation | null>(null);
   const [selectedLostPriorTech, setSelectedLostPriorTech] = useState<BenchLostPriorReceiveTech | null>(null);
 
   // リセット
@@ -91,8 +117,11 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
     setSelectedWonReceiveTech(null);
     setLostCategory(null);
     setLostStep('main');
+    setSelectedLostSelfMissType(null);
     setSelectedLostCourse('unknown');
     setSelectedLostReceiveTech(null);
+    setSelectedThirdMissPos(null);
+    setSelectedThirdMissSit(null);
     setSelectedLostPriorTech(null);
   };
 
@@ -223,25 +252,21 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
   // 【失点時】各分岐の保存ロジック
   // ===========================================================================
 
-  // 1. 失点 > 相手サービスエース > コース選択
-  const handleLostServiceAce = (course: BenchCourse) => {
-    const { sCourse, sLen } = parseCourse(course);
-    const courseLabel = BENCH_COURSE_LABELS[course];
+  // 1-A. 自分のミス > サーブミス (即座に保存)
+  const handleLostServeMiss = () => {
     commitRally(
-      `相手サービスエース (${courseLabel})`,
-      'receive',
-      'opp_attack',
+      '自分のサーブミス',
+      'serve_miss',
+      'neutral',
       {
-        serveCourse: sCourse,
-        serveLength: sLen,
-        benchCourse: course,
-        benchLostCategory: 'service_ace',
-        missType: 'no_touch',
+        benchLostCategory: 'self_miss',
+        benchLostSelfMissType: 'serve_miss',
+        missType: 'net',
       }
     );
   };
 
-  // 2. 失点 > レシーブミス > コース & 技術 & ハンド選択
+  // 1-B. 自分のミス > レシーブミス > コース & 技術 & ハンド
   const handleLostReceiveMiss = (hand: 'fore' | 'back') => {
     const tech = selectedLostReceiveTech || 'push';
     const techLabel = BENCH_LOST_RECEIVE_LABELS[tech];
@@ -257,7 +282,8 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
         serveCourse: sCourse,
         serveLength: sLen,
         benchCourse: selectedLostCourse,
-        benchLostCategory: 'receive_miss',
+        benchLostCategory: 'self_miss',
+        benchLostSelfMissType: 'receive_miss',
         benchLostReceiveTech: tech,
         benchLostReceiveHand: hand,
         missType: tech === 'drive' || tech === 'smash' ? 'over' : 'net',
@@ -265,8 +291,31 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
     );
   };
 
-  // 3. 失点 > 相手３球目攻撃 > 直前レシーブ & 質選択
-  const handleLostThirdBall = (quality: BenchLostReceiveQuality) => {
+  // 1-C. 自分のミス > ３球目攻撃ミス > 打球位置 & 状況 & コース
+  const handleLostThirdBallMiss = (course: BenchCourse) => {
+    const pos = selectedThirdMissPos || 'fore';
+    const posLabel = BENCH_LOST_THIRDBALL_POS_LABELS[pos];
+    const sit = selectedThirdMissSit || 'vs_push';
+    const sitLabel = BENCH_LOST_THIRDBALL_SITUATION_LABELS[sit];
+    const courseLabel = BENCH_COURSE_LABELS[course];
+
+    commitRally(
+      `３球目攻撃ミス (${posLabel} / ${sitLabel} / 相手レシーブ:${courseLabel})`,
+      'third_ball',
+      'self_attack',
+      {
+        benchLostCategory: 'self_miss',
+        benchLostSelfMissType: 'third_ball_miss',
+        benchLostThirdBallPosition: pos,
+        benchLostThirdBallSituation: sit,
+        benchLostThirdBallReceiveCourse: course,
+        missType: 'net',
+      }
+    );
+  };
+
+  // 2. 相手３球目攻撃 > 直前レシーブ & 質
+  const handleLostThirdBallOpp = (quality: BenchLostReceiveQuality) => {
     const priorTech = selectedLostPriorTech || 'push';
     const priorLabel = BENCH_LOST_RECEIVE_LABELS[priorTech as BenchLostReceiveTech] || 'ツッツキ';
     const qualityLabel = BENCH_LOST_RECEIVE_QUALITY_LABELS[quality];
@@ -284,7 +333,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
     );
   };
 
-  // 4. 失点 > ラリー
+  // 3. ラリー失点
   const handleLostRally = (type: BenchLostRallyType) => {
     const typeLabel = BENCH_LOST_RALLY_LABELS[type];
     const init: InitiativeType = type === 'out_attack_lost' ? 'self_attack' : type === 'out_defend_lost' ? 'opp_attack' : 'neutral';
@@ -300,9 +349,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
     );
   };
 
-  // ===========================================================================
-  // コース選択ボタン一覧 (再利用)
-  // ===========================================================================
+  // コース選択肢
   const courseOptions: { id: BenchCourse; label: string }[] = [
     { id: 'fore_short', label: 'フォア前' },
     { id: 'middle_short', label: 'ミドル前' },
@@ -410,8 +457,26 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             <>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="text-slate-900 font-black">
-                {lostCategory === 'service_ace' ? 'サービスエース' : lostCategory === 'receive_miss' ? 'レシーブミス' : lostCategory === 'third_ball_lost' ? '３球目攻撃' : 'ラリー'}
+                {lostCategory === 'self_miss' ? '自分のミス' : lostCategory === 'third_ball_lost' ? '相手３球目攻撃' : 'ラリー'}
               </span>
+            </>
+          )}
+          {selectedLostSelfMissType && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-rose-700 font-black">{BENCH_LOST_SELF_MISS_LABELS[selectedLostSelfMissType]}</span>
+            </>
+          )}
+          {selectedThirdMissPos && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-blue-700 font-black">{BENCH_LOST_THIRDBALL_POS_LABELS[selectedThirdMissPos]}</span>
+            </>
+          )}
+          {selectedThirdMissSit && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-indigo-700 font-black">{BENCH_LOST_THIRDBALL_SITUATION_LABELS[selectedThirdMissSit]}</span>
             </>
           )}
           {selectedLostCourse !== 'unknown' && (
@@ -429,7 +494,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
           {selectedLostPriorTech && (
             <>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="text-rose-700 font-black">{BENCH_LOST_RECEIVE_LABELS[selectedLostPriorTech as BenchLostReceiveTech]}</span>
+              <span className="text-red-700 font-black">{BENCH_LOST_RECEIVE_LABELS[selectedLostPriorTech as BenchLostReceiveTech]}</span>
             </>
           )}
         </div>
@@ -442,7 +507,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
               className="text-xs text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 font-bold px-2 py-1 rounded-lg flex items-center gap-0.5 transition-all"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>選択やり直し</span>
+              <span>やり直し</span>
             </button>
           )}
 
@@ -502,7 +567,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                 type="button"
                 onClick={() => {
                   setWonCategory('third_ball');
-                  setWonStep('course'); // または third_ball 専用画面
+                  setWonStep('course');
                 }}
                 className="p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
               >
@@ -518,7 +583,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                 type="button"
                 onClick={() => {
                   setWonCategory('rally');
-                  setWonStep('course'); // rally 専用画面
+                  setWonStep('course');
                 }}
                 className="p-4 rounded-2xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
               >
@@ -632,53 +697,37 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
       )}
 
       {/* ======================================================================= */}
-      {/* 5. 【失点時】のステップ別 UI */}
+      {/* 5. 【失点時】のステップ別 UI (ご要望の「自分のミス」階層構造) */}
       {/* ======================================================================= */}
       {selectedResult === 'lost' && (
         <div className="space-y-3">
-          {/* Step 1: 大分類選択 (サービスエース / レシーブミス / ３球目攻撃 / ラリー) */}
+          {/* Step 1: 大分類選択 (自分のミス / ３球目攻撃 / ラリー) */}
           {lostStep === 'main' && (
-            <div className="grid grid-cols-2 gap-3">
-              {/* ① サービスエース (相手) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* ① 自分のミス */}
               <button
                 type="button"
                 onClick={() => {
-                  setLostCategory('service_ace');
-                  setLostStep('course');
+                  setLostCategory('self_miss');
+                  setLostStep('self_miss_type');
                 }}
-                className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl">⚡</span>
-                  <span className="text-[10px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded">相手サーブ</span>
-                </div>
-                <div className="font-black text-sm text-rose-950 mt-2">サービスエース</div>
-              </button>
-
-              {/* ② レシーブミス */}
-              <button
-                type="button"
-                onClick={() => {
-                  setLostCategory('receive_miss');
-                  setLostStep('course');
-                }}
-                className="p-4 rounded-2xl bg-orange-50 hover:bg-orange-100 border-2 border-orange-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
+                className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[95px]"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-2xl">⚠️</span>
-                  <span className="text-[10px] font-black bg-orange-600 text-white px-1.5 py-0.5 rounded">自ミス</span>
+                  <span className="text-[10px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded">自失点</span>
                 </div>
-                <div className="font-black text-sm text-orange-950 mt-2">レシーブミス</div>
+                <div className="font-black text-sm text-rose-950 mt-2">自分のミス</div>
               </button>
 
-              {/* ③ 相手３球目攻撃 */}
+              {/* ② ３球目攻撃 (相手) */}
               <button
                 type="button"
                 onClick={() => {
                   setLostCategory('third_ball_lost');
                   setLostStep('prior_tech');
                 }}
-                className="p-4 rounded-2xl bg-red-50 hover:bg-red-100 border-2 border-red-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
+                className="p-4 rounded-2xl bg-red-50 hover:bg-red-100 border-2 border-red-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[95px]"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-2xl">💥</span>
@@ -687,14 +736,14 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                 <div className="font-black text-sm text-red-950 mt-2">３球目攻撃</div>
               </button>
 
-              {/* ④ ラリー */}
+              {/* ③ ラリー */}
               <button
                 type="button"
                 onClick={() => {
                   setLostCategory('rally');
-                  setLostStep('course');
+                  setLostStep('rally_type');
                 }}
-                className="p-4 rounded-2xl bg-pink-50 hover:bg-pink-100 border-2 border-pink-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[90px]"
+                className="p-4 rounded-2xl bg-pink-50 hover:bg-pink-100 border-2 border-pink-300 text-left transition-all active:scale-95 flex flex-col justify-between min-h-[95px]"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-2xl">🔄</span>
@@ -705,27 +754,57 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* 相手サービスエース → コース選択 */}
-          {lostCategory === 'service_ace' && lostStep === 'course' && (
+          {/* ----------------------------------------------------------------- */}
+          {/* 分岐 1: 自分のミス ➜ [サーブミス / レシーブミス / ３球目攻撃ミス] */}
+          {/* ----------------------------------------------------------------- */}
+          {lostCategory === 'self_miss' && lostStep === 'self_miss_type' && (
             <div className="space-y-2.5">
-              <span className="text-xs font-black text-slate-700 block">相手サーブのコースを選択（タップで即完了）</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {courseOptions.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handleLostServiceAce(c.id)}
-                    className="p-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-900 text-center transition-all active:scale-95 shadow-sm"
-                  >
-                    {c.label}
-                  </button>
-                ))}
+              <span className="text-xs font-black text-slate-700 block">ミスの種類を選択してください</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. サーブミス ➜ タップで即完了 */}
+                <button
+                  type="button"
+                  onClick={handleLostServeMiss}
+                  className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 font-black text-sm text-slate-900 text-center transition-all active:scale-95 shadow-sm flex flex-col items-center justify-center gap-1"
+                >
+                  <span className="text-xl">❌</span>
+                  <span>サーブミス</span>
+                  <span className="text-[10px] text-slate-500 font-normal">タップで即完了</span>
+                </button>
+
+                {/* 2. レシーブミス ➜ コースへ */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLostSelfMissType('receive_miss');
+                    setLostStep('rec_miss_course');
+                  }}
+                  className="p-4 rounded-2xl bg-orange-50 hover:bg-orange-100 border-2 border-orange-300 font-black text-sm text-orange-950 text-center transition-all active:scale-95 shadow-sm flex flex-col items-center justify-center gap-1"
+                >
+                  <span className="text-xl">⚠️</span>
+                  <span>レシーブミス</span>
+                  <span className="text-[10px] text-orange-600 font-normal">コース ➜ 技術 ➜ ハンド</span>
+                </button>
+
+                {/* 3. ３球目攻撃ミス ➜ フォア/回り込み/バックへ */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLostSelfMissType('third_ball_miss');
+                    setLostStep('third_miss_pos');
+                  }}
+                  className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-950 text-center transition-all active:scale-95 shadow-sm flex flex-col items-center justify-center gap-1"
+                >
+                  <span className="text-xl">💥</span>
+                  <span>３球目攻撃ミス</span>
+                  <span className="text-[10px] text-rose-600 font-normal">位置 ➜ 状況 ➜ コース</span>
+                </button>
               </div>
             </div>
           )}
 
-          {/* レシーブミス → Step 1: 相手サーブコース選択 */}
-          {lostCategory === 'receive_miss' && lostStep === 'course' && (
+          {/* レシーブミス Step 1: 相手サーブコース */}
+          {lostCategory === 'self_miss' && lostStep === 'rec_miss_course' && (
             <div className="space-y-2.5">
               <span className="text-xs font-black text-slate-700 block">相手サーブのコースを選択</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -735,7 +814,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedLostCourse(c.id);
-                      setLostStep('receive_tech');
+                      setLostStep('rec_miss_tech');
                     }}
                     className="p-3.5 rounded-2xl bg-orange-50 hover:bg-orange-100 border-2 border-orange-300 font-black text-sm text-orange-900 text-center transition-all active:scale-95 shadow-sm"
                   >
@@ -746,10 +825,10 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* レシーブミス → Step 2: レシーブ技術選択 */}
-          {lostCategory === 'receive_miss' && lostStep === 'receive_tech' && (
+          {/* レシーブミス Step 2: レシーブ技術 */}
+          {lostCategory === 'self_miss' && lostStep === 'rec_miss_tech' && (
             <div className="space-y-2.5">
-              <span className="text-xs font-black text-slate-700 block">ミスの原因となったレシーブ技術を選択</span>
+              <span className="text-xs font-black text-slate-700 block">レシーブ技術を選択</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {(['push', 'stop', 'flick', 'sink', 'light_hit', 'drive', 'smash'] as BenchLostReceiveTech[]).map((tech) => (
                   <button
@@ -757,7 +836,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedLostReceiveTech(tech);
-                      setLostStep('receive_hand');
+                      setLostStep('rec_miss_hand');
                     }}
                     className="p-3.5 rounded-2xl bg-orange-50 hover:bg-orange-100 border-2 border-orange-300 font-black text-sm text-orange-900 text-center transition-all active:scale-95 shadow-sm"
                   >
@@ -768,8 +847,8 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* レシーブミス → Step 3: フォア/バック ハンド選択 (タップで即完了) */}
-          {lostCategory === 'receive_miss' && lostStep === 'receive_hand' && (
+          {/* レシーブミス Step 3: フォア/バック ハンド (タップで即完了) */}
+          {lostCategory === 'self_miss' && lostStep === 'rec_miss_hand' && (
             <div className="space-y-2.5">
               <span className="text-xs font-black text-slate-700 block">打球ハンドを選択（タップで即完了）</span>
               <div className="grid grid-cols-2 gap-3">
@@ -791,10 +870,75 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* 相手３球目攻撃 → Step 1: 直前の行動（自分のレシーブ）選択 */}
+          {/* ３球目ミス Step 1: フォア / 回り込み / バック */}
+          {lostCategory === 'self_miss' && lostStep === 'third_miss_pos' && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-black text-slate-700 block">打球位置・ハンドを選択</span>
+              <div className="grid grid-cols-3 gap-2.5">
+                {(['fore', 'pivot', 'back'] as BenchLostThirdBallPosition[]).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => {
+                      setSelectedThirdMissPos(pos);
+                      setLostStep('third_miss_situation');
+                    }}
+                    className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-950 text-center transition-all active:scale-95 shadow-sm"
+                  >
+                    {BENCH_LOST_THIRDBALL_POS_LABELS[pos]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ３球目ミス Step 2: 相手レシーブ「対ツッツキ / 対上回転 / サーブでチャンスボール」 */}
+          {lostCategory === 'self_miss' && lostStep === 'third_miss_situation' && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-black text-slate-700 block">相手レシーブの状況を選択</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {(['vs_push', 'vs_topspin', 'chance_from_serve'] as BenchLostThirdBallSituation[]).map((sit) => (
+                  <button
+                    key={sit}
+                    type="button"
+                    onClick={() => {
+                      setSelectedThirdMissSit(sit);
+                      setLostStep('third_miss_course');
+                    }}
+                    className="p-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-950 text-center transition-all active:scale-95 shadow-sm"
+                  >
+                    {BENCH_LOST_THIRDBALL_SITUATION_LABELS[sit]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ３球目ミス Step 3: レシーブのコース (タップで即完了) */}
+          {lostCategory === 'self_miss' && lostStep === 'third_miss_course' && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-black text-slate-700 block">相手レシーブのコースを選択（タップで即完了）</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {courseOptions.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleLostThirdBallMiss(c.id)}
+                    className="p-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-900 text-center transition-all active:scale-95 shadow-sm"
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ----------------------------------------------------------------- */}
+          {/* 分岐 2: 相手３球目攻撃 ➜ 直前の行動 ➜ レシーブの質 */}
+          {/* ----------------------------------------------------------------- */}
           {lostCategory === 'third_ball_lost' && lostStep === 'prior_tech' && (
             <div className="space-y-2.5">
-              <span className="text-xs font-black text-slate-700 block">相手３球目前の直前の行動（自分のレシーブ）</span>
+              <span className="text-xs font-black text-slate-700 block">直前の自分のレシーブを選択</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {(['push', 'stop', 'flick', 'sink', 'light_hit', 'drive'] as BenchLostPriorReceiveTech[]).map((tech) => (
                   <button
@@ -813,14 +957,13 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* 相手３球目攻撃 → Step 2: レシーブの質選択（タップで即完了） */}
           {lostCategory === 'third_ball_lost' && lostStep === 'quality' && (
             <div className="space-y-2.5">
-              <span className="text-xs font-black text-slate-700 block">レシーブの質・状態を選択（タップで即完了）</span>
+              <span className="text-xs font-black text-slate-700 block">レシーブの質を選択（タップで即完了）</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => handleLostThirdBall('good')}
+                  onClick={() => handleLostThirdBallOpp('good')}
                   className="p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-300 font-black text-sm text-blue-950 text-left transition-all active:scale-95 shadow-sm"
                 >
                   <div className="font-black text-base text-blue-900">✅ うまくいった</div>
@@ -828,7 +971,7 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleLostThirdBall('floated_chance')}
+                  onClick={() => handleLostThirdBallOpp('floated_chance')}
                   className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 font-black text-sm text-rose-950 text-left transition-all active:scale-95 shadow-sm"
                 >
                   <div className="font-black text-base text-rose-900">⚠️ 浮いてチャンスボール</div>
@@ -838,8 +981,10 @@ export const BenchCoachInput: React.FC<BenchCoachInputProps> = ({
             </div>
           )}
 
-          {/* ラリー → 展開選択 */}
-          {lostCategory === 'rally' && (
+          {/* ----------------------------------------------------------------- */}
+          {/* 分岐 3: ラリー失点 ➜ 展開選択 */}
+          {/* ----------------------------------------------------------------- */}
+          {lostCategory === 'rally' && lostStep === 'rally_type' && (
             <div className="space-y-2.5">
               <span className="text-xs font-black text-slate-700 block">ラリーの展開を選択（タップで即完了）</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
